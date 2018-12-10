@@ -1,0 +1,3 @@
+-e git+https://github.com/WSULib/namaste.git#egg=namaste
+pypairtree==1.1.0
+pytest==4.0.1

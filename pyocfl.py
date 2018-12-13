@@ -684,7 +684,7 @@ class OCFLObject(object):
 			logger.debug('baseline set at v1')
 
 			# loop through versions
-			for v_num in v_nums:
+			for i,v_num in enumerate(v_nums):
 
 				logger.debug('reconcialing v%s' % v_num)
 
@@ -692,12 +692,53 @@ class OCFLObject(object):
 				v_dict = self.object_inventory.get_version_entry(v_num)
 				logger.debug(v_dict)
 
+				# loop through files in state and check if version ancestor
+				for digest,filepath in v_dict['state'].items():
+
+					logger.debug('checking version ancestors for digest: %s' % digest)
+
+					# loop through ancestors
+					ancestor_v_nums = list(range(1,v_num))
+					# reverse
+					ancestor_v_nums.reverse()
+					# loop through
+					for ancestor_v_num in ancestor_v_nums:
+
+						# get ancestor v_dict
+						ancestor_v_dict = self.object_inventory.get_version_entry(ancestor_v_num)
+
+						# check if digest present
+						if digest in ancestor_v_dict['state']:
+							logger.debug('digest found in v%s' % ancestor_v_num)
+
+							# remove file
+							self._remove_files_from_version(v_num, filepath)
+
+							# break loop
+							break
+
 		else:
 			logger.debug('object contains only single version, skipping forward delta reconciliation')
 
 
+	def _remove_files_from_version(self, version, filepaths):
 
+		'''
+		Method to remove file from version
 
+		Args:
+			version (int): version number
+			filepaths (list): list of filepaths to remove, often single entry
+		'''
+
+		for filepath in filepaths:
+
+			# remove file
+			v_filepath = os.path.join(self.full_path, 'v%d/content' % version, filepath)
+			logger.debug('REMOVING FILE FROM v%s: %s' % (version, v_filepath))
+			os.remove(v_filepath)
+
+			# TODO: remove empty directories
 
 
 	def get_fs_versions(self):

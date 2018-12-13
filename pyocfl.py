@@ -213,6 +213,9 @@ class OCFLStorageRoot(object):
 		ocfl_obj.storage_root = self
 		ocfl_obj.path = storage_path
 
+		# update
+		ocfl_obj.update()
+
 
 	def get_object(self, obj_input, id_type='id'):
 
@@ -280,6 +283,9 @@ class OCFLStorageRoot(object):
 			# udpate object
 			ocfl_obj.path = storage_path
 			ocfl_obj.object_inventory.inventory['id'] = target_id
+
+		# update
+		ocfl_obj.update()
 
 
 	def _calc_storage_id(self, obj_id):
@@ -558,8 +564,6 @@ class OCFLObject(object):
 		'''
 		Method to generate digest of files
 
-		TODO: Consider how to do for very large files
-
 		Args:
 			version_state (bool): If True, will remove version paths, resulting in relative manifest
 		'''
@@ -603,7 +607,25 @@ class OCFLObject(object):
 			- udpate inventory meta-digests
 		'''
 
-		pass
+		# write object inventory digest
+		inventory_digest = self._calc_file_digest(os.path.join(self.full_path,'inventory.json'), file_digest_algo=self.file_digest_algo)
+		with open(os.path.join(self.full_path,'inventory.json.%s' % self.file_digest_algo), 'w') as f:
+			f.write(inventory_digest)
+
+		# write version manifests
+		for k,v in self.object_inventory.inventory['versions'].items():
+
+			# create path
+			v_inv_path = os.path.join(self.full_path, k, 'inventory.json')
+
+			# write to fs
+			with open(v_inv_path, 'w') as f:
+				f.write(json.dumps(v, sort_keys=True, indent=4))
+
+			# get and write digest
+			v_inventory_digest = self._calc_file_digest(v_inv_path, file_digest_algo=self.file_digest_algo)
+			with open('%s.%s' % (v_inv_path, self.file_digest_algo), 'w') as f:
+				f.write(v_inventory_digest)
 
 
 	def get_fs_versions(self):

@@ -11,6 +11,7 @@ import os
 import pdb
 import re
 import shutil
+import time
 import uuid
 
 # 3rd party libraries
@@ -510,14 +511,6 @@ class OCFLObject(object):
 		# set v1 message
 		self.object_inventory.inventory['versions']['v1']['message'] = v1_msg
 
-		# set object manifest
-		self.object_inventory.update_object_manifest(self.generate_file_manifest(os.path.join(self.full_path,'v1')))
-
-		# set version state
-		self.object_inventory.update_version_state(
-			'v1', self.generate_file_manifest(os.path.join(self.full_path,'v1/content'), version_state=True)
-		)
-
 		# write Object declaration file
 		open('%s/0=%s_%s' % (self.full_path, self.conformance, self.version), 'w').close()
 
@@ -525,10 +518,6 @@ class OCFLObject(object):
 		if dec_readme is not None:
 			with open('%s/%s_%s.txt' % (self.full_path, self.conformance, self.version), 'w') as f:
 				f.write(dec_readme)
-
-		# write inventory
-		with open(os.path.join(self.full_path,'inventory.json'), 'w') as f:
-			f.write(json.dumps(self.object_inventory.inventory, sort_keys=True, indent=4))
 
 		# finally, run update
 		self.update()
@@ -559,41 +548,48 @@ class OCFLObject(object):
 			raise Exception('algorithm "%s" is not part of hashlib library' % file_digest_algo)
 
 
-	def generate_file_manifest(self, path, version_state=False):
+	def generate_file_manifest(self, path_list, version_state=False):
 
 		'''
 		Method to generate digest of files
 
 		Args:
+			path_list (list): List of paths to walk and generate digests
 			version_state (bool): If True, will remove version paths, resulting in relative manifest
 		'''
-
-		# strip path
-		path = path.rstrip('/')
 
 		# init dictionary to return
 		digest_d = {}
 
-		# get list of files
-		files = self._list_files(path, files_only=True)
+		# loop through provided paths
+		for path in path_list:
 
-		# loop through
-		for f in files:
+			# strip path
+			path = path.rstrip('/')
 
-			# calc digest
-			digest = self._calc_file_digest(f, file_digest_algo=self.file_digest_algo)
+			# get list of files
+			files = self._list_files(path, files_only=True)
 
-			# if for version, make path relative
-			if version_state:
-				f = f.replace('%s/' % path, '')
-			else:
-				f = f.replace('%s/' % self.full_path.rstrip('/'), '')
+			# loop through
+			for f in files:
 
-			# add to dictioanry
-			if digest not in digest_d:
-				digest_d[digest] = [f]
-			else:
-				digest_d[digest].append(f)
+				# calc digest
+				digest = self._calc_file_digest(f, file_digest_algo=self.file_digest_algo)
+
+				# if for version, make path relative
+				if version_state:
+					f = f.replace('%s/' % path, '')
+				else:
+					f = f.replace('%s/' % self.full_path.rstrip('/'), '')
+
+				# DEBUG
+				logger.debug('%s : %s' % (f, digest))
+
+				# add to dictioanry
+				if digest not in digest_d:
+					digest_d[digest] = [f]
+				else:
+					digest_d[digest].append(f)
 
 		# return
 		return digest_d
@@ -604,8 +600,47 @@ class OCFLObject(object):
 		'''
 		Method to update object
 			- reconcile versions
+				- remove files if not forward-delta
 			- udpate inventory meta-digests
+
+		TODO: MUCH of this can be refactored into methods, and replace much from new()
 		'''
+
+		# debug
+		stime = time.time()
+
+		# write inventories
+		self.write_inventories()
+
+		# reconcile deltas
+		self.reconcile_deltas()
+
+		# debug
+		logger.debug('updated elapsed: %s' % (time.time()-stime))
+
+
+	def write_inventories(self):
+
+
+		'''
+		Method to wrap the calculation of file digests and writing of inventories
+		'''
+
+		# get versions from fs
+		fs_versions = self.get_fs_versions()
+
+		# calc object manifest
+		self.object_inventory.update_object_manifest(self.generate_file_manifest([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ]))
+
+		# set version state
+		for v in fs_versions:
+			self.object_inventory.update_version_state(
+				'v%s' % v, self.generate_file_manifest([os.path.join(self.full_path,'v%s/content' % v)], version_state=True)
+			)
+
+		# write inventory
+		with open(os.path.join(self.full_path,'inventory.json'), 'w') as f:
+			f.write(json.dumps(self.object_inventory.inventory, sort_keys=True, indent=4))
 
 		# write object inventory digest
 		inventory_digest = self._calc_file_digest(os.path.join(self.full_path,'inventory.json'), file_digest_algo=self.file_digest_algo)
@@ -628,6 +663,43 @@ class OCFLObject(object):
 				f.write(v_inventory_digest)
 
 
+	def reconcile_deltas(self):
+
+		'''
+		Method to reconcile forward deltas
+			- REQUIRED: inventory.json is current
+
+		Approach:
+			- begin with v2, work forwards
+		'''
+
+		# get versions from inventory
+		v_nums = self.object_inventory.get_version_numbers()
+
+		# if versioned
+		if len(v_nums) > 1:
+
+			# pop v1
+			v_nums.remove(1)
+			logger.debug('baseline set at v1')
+
+			# loop through versions
+			for v_num in v_nums:
+
+				logger.debug('reconcialing v%s' % v_num)
+
+				# get version
+				v_dict = self.object_inventory.get_version_entry(v_num)
+				logger.debug(v_dict)
+
+		else:
+			logger.debug('object contains only single version, skipping forward delta reconciliation')
+
+
+
+
+
+
 	def get_fs_versions(self):
 
 		'''
@@ -642,7 +714,6 @@ class OCFLObject(object):
 
 		# comprehend and return
 		return [ int(re.match(v_num_regex, v_dir).group(1)) for v_dir in v_dirs ]
-
 
 
 
@@ -710,7 +781,43 @@ class OCFLObjectInventory(object):
 		Method to update version state with passed dictionary of digests
 		'''
 
-		self.inventory['versions'][version]['state'] = digest_d
+		if version in self.inventory['versions']:
+			self.inventory['versions'][version]['state'] = digest_d
+
+		else:
+			self.inventory['versions'][version] = {
+				'created':'{:%Y-%m-%dT%H:%M:%SZ}'.format(datetime.datetime.now()),
+				'message':None,
+				'state':digest_d
+			}
+
+
+	def get_version_numbers(self):
+
+		'''
+		Convenience method to return version numbersd
+		'''
+
+		return [ int(v.split('v')[-1]) for v in self.inventory['versions'].keys() ]
+
+
+
+	def get_version_entry(self, version):
+
+		'''
+		Convenience function to return version entry
+		'''
+
+		# handle int or strings
+		if type(version) == int:
+			v_key = 'v%s' % version
+		elif type(version) == str:
+			v_key = version
+
+		if v_key in self.inventory['versions']:
+			return self.inventory['versions'][v_key]
+		else:
+			return None
 
 
 

@@ -1,0 +1,15 @@
+{
+    "created": "2018-12-13T13:15:30Z",
+    "message": null,
+    "state": {
+        "a389442c959be88eafe7d923d3e2bfdc": [
+            "to_be_gone.txt"
+        ],
+        "c4b8393f8fdb92998370f404e8f7cbfe": [
+            "level1/level2/bar.txt"
+        ],
+        "cacaa052d4f1ebf6dd0f2cd99ad698d0": [
+            "foo.xml"
+        ]
+    }
+}

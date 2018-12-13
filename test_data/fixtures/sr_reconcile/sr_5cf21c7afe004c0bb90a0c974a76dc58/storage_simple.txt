@@ -1,0 +1,1 @@
+Storage type is: storage_simple

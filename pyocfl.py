@@ -3,6 +3,7 @@
 # python 3.x standard library modules
 import datetime
 from distutils.dir_util import copy_tree
+import glob
 import hashlib
 import json
 import logging
@@ -55,7 +56,8 @@ class OCFLStorageRoot(object):
 		conformance=DEFAULT_STORAGE_ROOT_CONFORMANCE,
 		version=DEFAULT_STORAGE_ROOT_VERSION,
 		storage=DEFAULT_STORAGE_ROOT_STORAGE,
-		storage_id_algo=DEFAULT_STORAGE_ROOT_STORAGE_ID_ALGO):
+		storage_id_algo=DEFAULT_STORAGE_ROOT_STORAGE_ID_ALGO,
+		auto_load=True):
 
 		self.path = path
 		self.conformance = conformance
@@ -67,9 +69,28 @@ class OCFLStorageRoot(object):
 		if self.path != None:
 			self.path = self.path.rstrip('/')
 
+		# load pre-existing
+		if auto_load and self.path != None and os.path.exists(self.path):
+			self.load()
+
 
 	def __str__(self):
 		return 'OCFLStorageRoot: %s, %s_%s' % (self.path, self.conformance, self.version)
+
+
+	def load(self):
+
+		'''
+		Method to load pre-existing StorageRoot
+		'''
+
+		# get storage type
+		storage_nam = namaste._get_namaste(self.path, 1)
+		if storage_nam != None:
+			self.storage = storage_nam[0].split('=')[-1]
+
+		# verify namaste
+		self.verify_dec()
 
 
 	def new(
@@ -298,12 +319,6 @@ class OCFLStorageRoot(object):
 
 
 
-
-
-
-
-
-
 class OCFLObject(object):
 
 	'''
@@ -325,7 +340,7 @@ class OCFLObject(object):
 		self,
 		path=None,
 		storage_root=None,
-		auto_parse=True,
+		auto_load=True,
 		conformance=DEFAULT_OBJECT_CONFORMANCE,
 		version=DEFAULT_OBJECT_VERSION,
 		file_digest_algo=DEFAULT_FILE_DIGEST_ALGO):
@@ -354,8 +369,8 @@ class OCFLObject(object):
 		# if storage_root is provided
 		self.storage_root = storage_root
 
-		# if storage_root is present and auto_parse
-		if self.full_path != None and auto_parse:
+		# if storage_root is present and auto_load
+		if self.full_path != None and auto_load:
 			self.parse_object()
 
 
@@ -509,8 +524,11 @@ class OCFLObject(object):
 		with open(os.path.join(self.full_path,'inventory.json'), 'w') as f:
 			f.write(json.dumps(self.object_inventory.inventory, sort_keys=True, indent=4))
 
+		# finally, run update
+		self.update()
 
-	def _calc_file_digest(self, filepath, file_digest_algo='sha512'):
+
+	def _calc_file_digest(self, filepath, file_digest_algo=DEFAULT_FILE_DIGEST_ALGO):
 
 		'''
 		Method to generate digests for filepath
@@ -581,9 +599,28 @@ class OCFLObject(object):
 
 		'''
 		Method to update object
+			- reconcile versions
+			- udpate inventory meta-digests
 		'''
 
 		pass
+
+
+	def get_fs_versions(self):
+
+		'''
+		Method to read versions as present on disk (fs)
+		'''
+
+		# get version dirs
+		v_dirs = glob.glob('%s/v*' % self.full_path)
+
+		# regex to grab version numbers for dirs
+		v_num_regex = re.compile(r'.+?/v([0-9]+$)')
+
+		# comprehend and return
+		return [ int(re.match(v_num_regex, v_dir).group(1)) for v_dir in v_dirs ]
+
 
 
 

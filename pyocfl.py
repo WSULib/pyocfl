@@ -492,7 +492,7 @@ class OCFLObject(object):
 					yield os.path.join(root, filename)
 
 
-	def new(self, dec_readme=None, v1_msg=None):
+	def new(self, obj_id=None, dec_readme=None, v1_msg=None):
 
 		'''
 		Method to create OCFL Object from self.path
@@ -519,9 +519,14 @@ class OCFLObject(object):
 
 		# init inventory and create new
 		self.object_inventory = OCFLObjectInventory()
-		self.object_inventory.new(**{
+		# prepare mixins
+		inv_kwargs = {
 				'digestAlgorithm':self.file_digest_algo
-			})
+			}
+		# if id provided, include
+		if obj_id != None:
+			inv_kwargs['id'] = obj_id
+		self.object_inventory.new(**inv_kwargs)
 
 		# set v1 message
 		self.object_inventory.inventory['versions']['v1']['message'] = v1_msg

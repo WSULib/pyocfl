@@ -28,15 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 
-# defaults
-
-# storage root
+# DEFAULTS
+# STORAGE ROOTS
 DEFAULT_STORAGE_ROOT_CONFORMANCE = 'ocfl'
 DEFAULT_STORAGE_ROOT_VERSION = '1.0'
 DEFAULT_STORAGE_ROOT_STORAGE = 'storage_pair_tree' # ['storage_simple','storage_pair_tree']
 DEFAULT_STORAGE_ROOT_STORAGE_ID_ALGO = 'md5' # ['md5','sha256','sha512']
-
-# objects
+# OBJECTS
 DEFAULT_OBJECT_CONFORMANCE = 'ocfl_object'
 DEFAULT_OBJECT_VERSION = '1.0'
 DEFAULT_OBJECT_FILE_DIGEST_ALGO = 'md5' # ['md5','sha256','sha512']

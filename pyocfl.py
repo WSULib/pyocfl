@@ -29,15 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 # defaults
+
 # storage root
 DEFAULT_STORAGE_ROOT_CONFORMANCE = 'ocfl'
 DEFAULT_STORAGE_ROOT_VERSION = '1.0'
 DEFAULT_STORAGE_ROOT_STORAGE = 'storage_pair_tree' # ['storage_simple','storage_pair_tree']
 DEFAULT_STORAGE_ROOT_STORAGE_ID_ALGO = 'md5' # ['md5','sha256','sha512']
+
 # objects
 DEFAULT_OBJECT_CONFORMANCE = 'ocfl_object'
 DEFAULT_OBJECT_VERSION = '1.0'
-DEFAULT_FILE_DIGEST_ALGO = 'md5' # ['md5','sha256','sha512']
+DEFAULT_OBJECT_FILE_DIGEST_ALGO = 'md5' # ['md5','sha256','sha512']
 
 
 class InvalidOCFLObject(Exception):
@@ -365,7 +367,7 @@ class OCFLObject(object):
 		auto_load=True,
 		conformance=DEFAULT_OBJECT_CONFORMANCE,
 		version=DEFAULT_OBJECT_VERSION,
-		file_digest_algo=DEFAULT_FILE_DIGEST_ALGO):
+		file_digest_algo=DEFAULT_OBJECT_FILE_DIGEST_ALGO):
 
 		'''
 		Args:
@@ -538,7 +540,7 @@ class OCFLObject(object):
 		self.update()
 
 
-	def _calc_file_digest(self, filepath, file_digest_algo=DEFAULT_FILE_DIGEST_ALGO):
+	def _calc_file_digest(self, filepath, file_digest_algo=DEFAULT_OBJECT_FILE_DIGEST_ALGO):
 
 		'''
 		Method to generate digests for filepath
@@ -642,7 +644,7 @@ class OCFLObject(object):
 		'''
 
 		# get versions from fs
-		fs_versions = self.get_fs_versions()
+		fs_versions = self.get_fs_version_numbers()
 
 		# calc object manifest
 		self.object_inventory.update_object_manifest(self.generate_file_manifest([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ]))
@@ -732,6 +734,9 @@ class OCFLObject(object):
 							# break loop
 							break
 
+				# remove any empty directories
+				self._remove_empty_directories(v_num)
+
 		else:
 			logger.debug('object contains only single version, skipping forward delta reconciliation')
 
@@ -750,13 +755,25 @@ class OCFLObject(object):
 
 			# remove file
 			v_filepath = os.path.join(self.full_path, 'v%d/content' % version, filepath)
-			logger.debug('REMOVING FILE FROM v%s: %s' % (version, v_filepath))
+			logger.debug('removing file from v%s: %s' % (version, v_filepath))
 			os.remove(v_filepath)
 
-			# TODO: remove empty directories
+
+	def _remove_empty_directories(self, version):
+
+		'''
+		Method to remove empty directories
+		'''
+
+		for root, dirs, files in os.walk(os.path.join(self.full_path, 'v%d/content' % version), topdown=False):
+			for dir in dirs:
+				dir_full_path = os.path.join(root, dir)
+				if len(os.listdir(dir_full_path)) == 0:
+					logger.debug('removing empty directory: %s' % dir_full_path)
+					os.rmdir(dir_full_path)
 
 
-	def get_fs_versions(self):
+	def get_fs_version_numbers(self):
 
 		'''
 		Method to read versions as present on disk (fs)
@@ -770,6 +787,105 @@ class OCFLObject(object):
 
 		# comprehend and return
 		return [ int(re.match(v_num_regex, v_dir).group(1)) for v_dir in v_dirs ]
+
+
+	def checkout(self, output_path, overwrite=True, version=None):
+
+		'''
+		Method to checkout latest, or specific, version of an Object
+
+		Args:
+			output_path (str): Path for output of actualzied version
+			version (None, int, str): Version to check out.  If None, latest, else, specific.
+		'''
+
+		# determine version
+		if version != None:
+			# handle int or strings
+			if type(version) == int:
+				v_key = 'v%s' % version
+			elif type(version) == str:
+				v_key = version
+			v_num = int(v_key.split('v')[-1])
+		else:
+			v_num = self.object_inventory.get_version_numbers()[-1]
+			v_key = 'v%s' % v_num
+		logger.debug('checking out version: %s' % (v_key))
+
+		# load version state from inventory
+		v_dict = self.object_inventory.get_version_entry(v_num)
+
+		# handle output path
+		output_path = self._handle_output_path(output_path, overwrite)
+		logger.debug('writing to: %s' % output_path)
+
+		# loop through version state and copy files to output
+		for digest,filepaths in v_dict['state'].items():
+
+			logger.debug('locating writing content for digest: %s' % digest)
+
+			# find matching files
+			matching_files = self.object_inventory.manifest[digest]
+
+			if len(matching_files) > 0:
+				logger.debug('Files with matching digest: %s' % matching_files)
+
+				# loop through files in filepaths for digest, copy, using 0th index from matching files
+				for filepath in filepaths:
+					self._copy_file(matching_files[0], output_path, filepath)
+
+
+	def _copy_file(self, src_filepath, output_path, target_filepath):
+
+		'''
+		Method to handle copying of files
+			- notably, when they contain directory substrate not present in destination
+
+		Args:
+			src_filepath (str): Filepath from manifest
+			output_path (str): Output directory
+			target_filepath (str): Filepath, including local directories, destined for output_path
+		'''
+
+		logger.debug('copying content from %s to %s' % (src_filepath, os.path.join(output_path, target_filepath)))
+
+		# determine directory structure "under" file to create in output_path
+		target_filepath_dirs = '/'.join(target_filepath.split('/')[:-1])
+		if not os.path.exists(os.path.join(output_path, target_filepath_dirs)):
+			os.makedirs(os.path.join(output_path, target_filepath_dirs))
+
+		# copy file
+		shutil.copyfile(os.path.join(self.full_path, src_filepath), os.path.join(output_path, target_filepath))
+
+
+	def _handle_output_path(self, output_path, overwrite):
+
+		'''
+		Method to handle creation of output path for object checkout
+		'''
+
+		# handle output path
+		if os.path.exists(output_path):
+
+			# check if dir, if overwrite, allow
+			if os.path.isdir(output_path) and not overwrite:
+				raise Exception('%s exists and is a directory, but overwrite is False, set to True to allow overwriting of files' % output_path)
+
+			# check if dir, if overwrite, allow
+			if os.path.isdir(output_path) and overwrite:
+				logger.debug('%s exists and is a directory, overwriting files' % output_path)
+
+			elif not os.path.isdir(output_path):
+				raise Exception('%s appears to be a file, cannot overwrite, aborting' % output_path)
+
+		# else, if not exists, create
+		else:
+			logger.debug('%s does not yet exist, creating' % output_path)
+			os.makedirs(output_path)
+
+		# return
+		return output_path
+
 
 
 
@@ -793,6 +909,16 @@ class OCFLObjectInventory(object):
 				raise Exception('JSON or python dictionary required when passed as inventory')
 
 
+	@property
+	def manifest(self):
+
+		'''
+		Return manifest as property
+		'''
+
+		return self.inventory['manifest']
+
+
 	def new(self,**kwargs):
 
 		'''
@@ -801,7 +927,7 @@ class OCFLObjectInventory(object):
 
 		# OCFL Object inventory scaffold
 		self.inventory = {
-			'digestAlgorithm':DEFAULT_FILE_DIGEST_ALGO,
+			'digestAlgorithm':DEFAULT_OBJECT_FILE_DIGEST_ALGO,
 			'head':'v1',
 			'id':uuid.uuid4().hex,
 			'manifest':{},
@@ -854,8 +980,9 @@ class OCFLObjectInventory(object):
 		Convenience method to return version numbersd
 		'''
 
-		return [ int(v.split('v')[-1]) for v in self.inventory['versions'].keys() ]
-
+		version_nums = [ int(v.split('v')[-1]) for v in self.inventory['versions'].keys() ]
+		version_nums.sort()
+		return version_nums
 
 
 	def get_version_entry(self, version):

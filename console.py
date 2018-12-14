@@ -43,5 +43,5 @@ def scaffold_demo_data(storage='storage_simple'):
 
 
 # get obj
-sr = OCFLStorageRoot('test_data/test_a597f585ec52483ba7c50457a30bfbfd/sr_5cf21c7afe004c0bb90a0c974a76dc58')
+sr = OCFLStorageRoot('test_data/sr_reconcile')
 obj = sr.get_object('c101f4143b954a4891cc15c15e3ab9b7')

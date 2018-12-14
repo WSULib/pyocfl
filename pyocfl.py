@@ -83,6 +83,12 @@ class OCFLStorageRoot(object):
 
 		'''
 		Method to load pre-existing StorageRoot
+
+		Args:
+			None
+
+		Returns:
+			None: reads information from filesystem and sets to self
 		'''
 
 		# get storage type
@@ -108,7 +114,13 @@ class OCFLStorageRoot(object):
 		Method to create new storage root
 
 		Args:
-			path (str): path of storage root to load or create
+			path (str): path of storage root to create
+			conformance (str): Namaste conformance, ['ocfl']
+			version (str): Conformance version, ['1.0']
+			storage (str): Storage organization of StorageRoot ['storage_simple','simple_pair_tree']
+			storage_id_algo (str): String of hashlib algorithm function, ['md5','sha256','sha512',etc.]
+			dec_readme (str): Text to include in the readme of the conformance file, 0= file
+			storage_readme (str): Text to include indicated in 1= file
 		'''
 
 		# overwrite path if provided
@@ -134,6 +146,9 @@ class OCFLStorageRoot(object):
 
 		'''
 		Method to create storage location
+
+		Returns:
+			None: creates fs directory for new StorageRoot
 		'''
 
 		# create path
@@ -462,7 +477,7 @@ class OCFLObject(object):
 			self.object_inventory = OCFLObjectInventory(inventory=f.read())
 
 
-	def _list_files(self,path,files_only=False):
+	def _list_files(self, path, files_only=False):
 
 		'''
 		Method to return generator of recursive files/directories

@@ -1,0 +1,66 @@
+{
+    "digestAlgorithm": "md5",
+    "head": "v1",
+    "id": "c101f4143b954a4891cc15c15e3ab9b7",
+    "manifest": {
+        "1476bc4456cea62a4ead66b06cdc2344": [
+            "v3/content/foo.xml"
+        ],
+        "911268b5c64077bbcf4bca1262c2ec9b": [
+            "v3/content/penny.txt"
+        ],
+        "a389442c959be88eafe7d923d3e2bfdc": [
+            "v1/content/to_be_gone.txt"
+        ],
+        "c4b8393f8fdb92998370f404e8f7cbfe": [
+            "v1/content/level1/level2/bar.txt",
+            "v2/content/level100/level200/bar.txt"
+        ],
+        "cacaa052d4f1ebf6dd0f2cd99ad698d0": [
+            "v1/content/foo.xml",
+            "v2/content/foo.xml"
+        ]
+    },
+    "type": "Object",
+    "versions": {
+        "v1": {
+            "created": "2018-12-13T13:15:30Z",
+            "message": null,
+            "state": {
+                "a389442c959be88eafe7d923d3e2bfdc": [
+                    "to_be_gone.txt"
+                ],
+                "c4b8393f8fdb92998370f404e8f7cbfe": [
+                    "level1/level2/bar.txt"
+                ],
+                "cacaa052d4f1ebf6dd0f2cd99ad698d0": [
+                    "foo.xml"
+                ]
+            }
+        },
+        "v2": {
+            "created": "2018-12-13T14:52:28Z",
+            "message": null,
+            "state": {
+                "c4b8393f8fdb92998370f404e8f7cbfe": [
+                    "level100/level200/bar.txt"
+                ],
+                "cacaa052d4f1ebf6dd0f2cd99ad698d0": [
+                    "foo.xml"
+                ]
+            }
+        },
+        "v3": {
+            "created": "2018-12-13T15:19:37Z",
+            "message": null,
+            "state": {
+                "1476bc4456cea62a4ead66b06cdc2344": [
+                    "foo.xml"
+                ],
+                "911268b5c64077bbcf4bca1262c2ec9b": [
+                    "penny.txt"
+                ]
+            }
+        }
+    }
+}

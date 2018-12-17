@@ -1,0 +1,12 @@
+{
+    "created": "2018-12-13T14:52:28Z",
+    "message": null,
+    "state": {
+        "c4b8393f8fdb92998370f404e8f7cbfe": [
+            "level100/level200/bar.txt"
+        ],
+        "cacaa052d4f1ebf6dd0f2cd99ad698d0": [
+            "foo.xml"
+        ]
+    }
+}

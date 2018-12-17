@@ -318,7 +318,7 @@ test_data/v2_test_checkout/
 
 ### Listing Objects from Storage Root
 
-Initialized a generator of all objects from a Storage Root:
+Initialize a generator of all objects from a Storage Root:
 
 ```
 # as OCFLObject instances
@@ -349,5 +349,5 @@ Out[14]:
  'test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/d5/17/d6/a7/d0/bf/e0/68/f6/17/c0/64/6d/69/8a/d4/d517d6a7d0bfe068f617c0646d698ad4']
 ```
 
-Unlike `sr.get_object()` which is tailored for each storage engine, for simplicity's sake, [pathlib](https://docs.python.org/3.5/library/pathlib.html) and [glob](https://docs.python.org/3.5/library/glob.html) modules are used to locate and return objectcs from within a Storage Engine.  However, there exists considerable room for customizing how this retrieval and return might function, particularly when the storage engine is known (e.g. simple, pairtree, etc.).
+Unlike `sr.get_object()` which is tailored for each storage engine, for simplicity's sake, [pathlib](https://docs.python.org/3.5/library/pathlib.html) and [glob](https://docs.python.org/3.5/library/glob.html) modules are used to locate and return objects from within a Storage Engine.  However, there exists considerable room for customizing how this retrieval and return might function, particularly when the storage engine is known (e.g. simple, pairtree, etc.).
 

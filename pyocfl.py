@@ -340,6 +340,15 @@ class OCFLStorageRoot(object):
 			raise Exception('"%s" is not a recognized storage engine' % self.storage)
 
 
+	def get_objects(self):
+
+		'''
+		Return generator of all objects in Storage Root
+		'''
+
+		pass
+
+
 
 class OCFLObject(object):
 

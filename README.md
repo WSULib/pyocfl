@@ -259,7 +259,7 @@ test_data/goober/51/78/15/a5/04/46/ac/68/9c/54/f4/a0/86/0f/77/f1/517815a50446ac6
     └── inventory.json.md5
 ```
 
-What's going on here?  OCFL uses forward-delta versioning to avoid duplication of files in later versions, if they are contained in earlier versions.  To make this work, it's critical that the `inventory.json` file outlines precisely which files should be in each version.  We can observe that `foo.xml` and `level1/level2/bar.txt` are both still attributed to `v2` by looking at the object's inventory:
+What's going on here?  OCFL uses forward-delta versioning ([see this nice discussion about forward-delta versioning](https://journal.code4lib.org/articles/8482#3.3)) to avoid duplication of files in later versions, if they are contained in earlier versions.  To make this work, it's critical that the `inventory.json` file outlines precisely which files should be in each version.  We can observe that `foo.xml` and `level1/level2/bar.txt` are both still attributed to `v2` by looking at the object's inventory:
 
 ```
 In [30]: obj.object_inventory.inventory                         

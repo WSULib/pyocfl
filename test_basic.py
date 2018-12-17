@@ -37,7 +37,7 @@ def setup_module(session):
 	copy_tree('test_data/fixtures', fixtures_dir)
 
 	# copy existing StorageRoots (sr) for use during testing
-	for sr in ['sr1']:
+	for sr in ['sr1','sr_reconcile']:
 		target_dir = os.path.join(TESTS_DIR,sr)
 		os.makedirs(target_dir)
 		copy_tree(os.path.join('test_data/fixtures',sr), target_dir)
@@ -183,6 +183,174 @@ class TestOCFLObject(object):
 
 		# assert
 		assert obj.is_ocfl_object() != False
+
+
+	def test_get_obj(self):
+
+		'''
+		Test retrieval of object with id only
+		'''
+
+		# load storage root
+		storage_location = '%s/sr1' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get object
+		obj = sr.get_object('ocfl_obj1')
+
+		# assert
+		assert obj.is_ocfl_object() != False
+
+
+	def test_version_details(self):
+
+		'''
+		Test version numbers from disk
+		'''
+
+		# load storage root
+		storage_location = '%s/sr1' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get object
+		obj = sr.get_object('ocfl_obj1')
+
+		# check reading of versions from filesystem
+		assert obj.get_fs_version_numbers() == [1]
+
+		# check reading of versions from inventory.json
+		assert obj.object_inventory.get_version_numbers() == [1]
+
+		# retrieve v1 entry from inventory as int and string
+		assert type(obj.object_inventory.get_version_entry(1)) == dict
+		assert type(obj.object_inventory.get_version_entry('v1')) == dict
+
+
+	def test_file_manifest_generation(self):
+
+		'''
+		Method to check generation of file manifests from object pre-reconciliation
+		'''
+
+		# load reconcile storage root
+		storage_location = '%s/sr_reconcile' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get version, but not reconciled object
+		obj = sr.get_object('c101f4143b954a4891cc15c15e3ab9b7')
+
+		# check generation of manifests for versions
+		assert obj.generate_file_manifest([os.path.join(obj.full_path,'v1'),os.path.join(obj.full_path,'v2'),os.path.join(obj.full_path,'v3')]) == {
+			'1476bc4456cea62a4ead66b06cdc2344': ['v3/content/foo.xml'],
+			'2421f6711a05b350f9cf7d293125f3f3': ['v3/inventory.json'],
+			'320422e5c8ad1a4158bc123dec1ce6c0': ['v3/inventory.json.md5'],
+			'6f0f992e5d5371f71b1a0614f7b685ea': ['v1/inventory.json.md5'],
+			'83928609777e5c2ec3e8de30e138365a': ['v2/inventory.json'],
+			'911268b5c64077bbcf4bca1262c2ec9b': ['v3/content/penny.txt'],
+			'a389442c959be88eafe7d923d3e2bfdc': ['v1/content/to_be_gone.txt'],
+			'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt',
+			'v2/content/level100/level200/bar.txt'],
+			'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml',
+			'v2/content/foo.xml'],
+			'ef1d253df340aa7a99896c79c42622fe': ['v2/inventory.json.md5'],
+			'fdecf6597c0577ad1daea432e0d4a230': ['v1/inventory.json']
+		}
+
+
+	def test_forward_delta_reconciliation(self):
+
+		'''
+		Method to check outcome of forward-delta reconciliation of files
+		'''
+
+		# load reconcile storage root
+		storage_location = '%s/sr_reconcile' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get version, but not reconciled object
+		obj = sr.get_object('c101f4143b954a4891cc15c15e3ab9b7')
+
+		# prepare version paths
+		v_paths = [os.path.join(obj.full_path,'v1'),os.path.join(obj.full_path,'v2'),os.path.join(obj.full_path,'v3')]
+
+		# save manifest pre reconciliation
+		pre_recon = obj.generate_file_manifest(v_paths)
+
+		# run update, which triggers reconciliation
+		obj.update()
+
+		# get post reconciliation
+		post_recon = obj.generate_file_manifest(v_paths)
+
+		# assert different
+		assert pre_recon != post_recon
+
+		# assert post looks as expected
+		assert post_recon == {'1476bc4456cea62a4ead66b06cdc2344': ['v3/content/foo.xml'],
+			'2421f6711a05b350f9cf7d293125f3f3': ['v3/inventory.json'],
+			'320422e5c8ad1a4158bc123dec1ce6c0': ['v3/inventory.json.md5'],
+			'6f0f992e5d5371f71b1a0614f7b685ea': ['v1/inventory.json.md5'],
+			'83928609777e5c2ec3e8de30e138365a': ['v2/inventory.json'],
+			'911268b5c64077bbcf4bca1262c2ec9b': ['v3/content/penny.txt'],
+			'a389442c959be88eafe7d923d3e2bfdc': ['v1/content/to_be_gone.txt'],
+			'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt'],
+			'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml'],
+			'ef1d253df340aa7a99896c79c42622fe': ['v2/inventory.json.md5'],
+			'fdecf6597c0577ad1daea432e0d4a230': ['v1/inventory.json']
+		}
+
+
+	def test_version_checkout(self):
+
+		'''
+		Check version outputs
+		'''
+
+		# load reconcile storage root
+		storage_location = '%s/sr_reconcile' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get version, but not reconciled object
+		obj = sr.get_object('c101f4143b954a4891cc15c15e3ab9b7')
+
+		# make dir for checkouts
+		obj_checkouts = '%s/checkouts/%s' % (TESTS_DIR,obj.id)
+		os.makedirs(obj_checkouts)
+
+		# checkout v1
+		obj.checkout('%s/v1' % (obj_checkouts), version=1)
+		assert glob.glob('%s/v1/**/*' % obj_checkouts, recursive=True) == [
+			'%s/checkouts/%s/v1/to_be_gone.txt' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v1/foo.xml' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v1/level1' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v1/level1/level2' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v1/level1/level2/bar.txt' % (TESTS_DIR, obj.id)
+		]
+
+		# checkout v2
+		obj.checkout('%s/v2' % (obj_checkouts), version=2)
+		assert glob.glob('%s/v2/**/*' % obj_checkouts, recursive=True) == [
+			'%s/checkouts/%s/v2/level100' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v2/foo.xml' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v2/level100/level200' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v2/level100/level200/bar.txt' % (TESTS_DIR, obj.id)
+		]
+
+		# checkout v3
+		obj.checkout('%s/v3' % (obj_checkouts), version=3)
+		assert glob.glob('%s/v3/**/*' % obj_checkouts, recursive=True) == [
+			'%s/checkouts/%s/v3/foo.xml' % (TESTS_DIR, obj.id),
+			'%s/checkouts/%s/v3/penny.txt' % (TESTS_DIR, obj.id)
+		]
+
+
+
+
+
+
+
+
+
 
 
 

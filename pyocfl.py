@@ -8,6 +8,7 @@ import hashlib
 import json
 import logging
 import os
+import pathlib
 import pdb
 import re
 import shutil
@@ -340,13 +341,37 @@ class OCFLStorageRoot(object):
 			raise Exception('"%s" is not a recognized storage engine' % self.storage)
 
 
-	def get_objects(self):
+	def get_objects(self, as_ocfl_objects=True):
 
 		'''
 		Return generator of all objects in Storage Root
 		'''
 
-		pass
+		# get pathlib
+		p = pathlib.Path(self.path)
+
+		# init generator of object declaration paths
+		obj_dec_paths = p.glob('**/0=ocfl_object_*')
+
+		# wrap in generator to return parent, obj path
+		return self._obj_dec_paths_generator(obj_dec_paths, as_ocfl_objects=as_ocfl_objects)
+
+
+	def _obj_dec_paths_generator(self, obj_dec_paths, as_ocfl_objects=True):
+
+		'''
+		Wrapper to accept generator of object declaration paths, return object path
+		'''
+
+		for obj_dec_path in obj_dec_paths:
+
+			# yield object path
+			if not as_ocfl_objects:
+				yield str(obj_dec_path.parent)
+
+			# yield object instance
+			elif as_ocfl_objects:
+				yield OCFLObject(str(obj_dec_path.parent))
 
 
 

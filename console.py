@@ -6,7 +6,7 @@ from pyocfl import *
 
 
 
-def scaffold_demo_data(storage='storage_simple'):
+def scaffold_demo_data(storage='storage_pair_tree'):
 
 	'''
 	Convenience function to scaffold demo dir at ./test_data/test_UNIQUE_ID
@@ -30,15 +30,20 @@ def scaffold_demo_data(storage='storage_simple'):
 		storage_readme='Storage type is: %s' % storage
 	)
 
-	# load raw directory and convert to OCFL obj
-	obj = OCFLObject(os.path.join(demo_dir,'fixtures/raw_objs/raw_obj1'))
-	obj.new()
+	# load raw directories and convert to OCFL objects
+	objs = []
+	for d in os.listdir(os.path.join(demo_dir,'fixtures/raw_objs')):
+		obj = OCFLObject(os.path.join(demo_dir,'fixtures/raw_objs',d))
+		obj.new()
 
-	# add to storage root
-	sr.add_object(obj)
+		# add to storage root
+		sr.add_object(obj,d)
+
+		# append
+		objs.append(obj)
 
 	# return
-	return (demo_dir, sr, obj)
+	return (demo_dir, sr, objs)
 
 
 

@@ -316,5 +316,38 @@ test_data/v2_test_checkout/
 2 directories, 3 files
 ```
 
+### Listing Objects from Storage Root
 
+Initialized a generator of all objects from a Storage Root:
+
+```
+# as OCFLObject instances
+objs_gen = sr.get_objects()
+
+In [16]: list(objs_gen)                           
+namaste - directory type ocfl_object - version 1.0
+namaste - directory type ocfl_object - version 1.0
+namaste - directory type ocfl_object - version 1.0
+namaste - directory type ocfl_object - version 1.0
+namaste - directory type ocfl_object - version 1.0
+Out[16]: 
+[<pyocfl.OCFLObject at 0x111f4d128>,
+ <pyocfl.OCFLObject at 0x111f6abe0>,
+ <pyocfl.OCFLObject at 0x1107827f0>,
+ <pyocfl.OCFLObject at 0x11079e668>,
+ <pyocfl.OCFLObject at 0x1107a3208>]
+
+# as full filesystem paths to objects
+objs_gen = sr.get_objects(as_ocfl_objects=False)
+
+In [14]: list(objs_gen)                                      
+Out[14]: 
+['test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/60/a5/f0/21/cf/42/e8/0c/36/7d/71/ff/29/70/e0/aa/60a5f021cf42e80c367d71ff2970e0aa',
+ 'test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/fc/f8/09/84/2d/d4/c3/7d/83/48/ca/c5/af/7a/53/63/fcf809842dd4c37d8348cac5af7a5363',
+ 'test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/1f/ac/3b/ae/b4/29/6e/01/99/61/f1/25/49/44/f5/ab/1fac3baeb4296e019961f1254944f5ab',
+ 'test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/39/f7/f3/88/10/21/58/10/d5/ed/6c/4f/b4/f9/8c/d2/39f7f38810215810d5ed6c4fb4f98cd2',
+ 'test_data/test_fe89db792da94587a190b2677984fde0/sr_bac0c73b10654e4bad1a5e7cda3d149e/d5/17/d6/a7/d0/bf/e0/68/f6/17/c0/64/6d/69/8a/d4/d517d6a7d0bfe068f617c0646d698ad4']
+```
+
+Unlike `sr.get_object()` which is tailored for each storage engine, for simplicity's sake, [pathlib](https://docs.python.org/3.5/library/pathlib.html) and [glob](https://docs.python.org/3.5/library/glob.html) modules are used to locate and return objectcs from within a Storage Engine.  However, there exists considerable room for customizing how this retrieval and return might function, particularly when the storage engine is known (e.g. simple, pairtree, etc.).
 

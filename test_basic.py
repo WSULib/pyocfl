@@ -240,7 +240,7 @@ class TestOCFLObject(object):
 		obj = sr.get_object('c101f4143b954a4891cc15c15e3ab9b7')
 
 		# check generation of manifests for versions
-		assert obj.generate_file_manifest([os.path.join(obj.full_path,'v1'),os.path.join(obj.full_path,'v2'),os.path.join(obj.full_path,'v3')]) == {
+		assert obj.calc_file_digests([os.path.join(obj.full_path,'v1'),os.path.join(obj.full_path,'v2'),os.path.join(obj.full_path,'v3')]) == {
 			'1476bc4456cea62a4ead66b06cdc2344': ['v3/content/foo.xml'],
 			'2421f6711a05b350f9cf7d293125f3f3': ['v3/inventory.json'],
 			'320422e5c8ad1a4158bc123dec1ce6c0': ['v3/inventory.json.md5'],
@@ -274,13 +274,13 @@ class TestOCFLObject(object):
 		v_paths = [os.path.join(obj.full_path,'v1'),os.path.join(obj.full_path,'v2'),os.path.join(obj.full_path,'v3')]
 
 		# save manifest pre reconciliation
-		pre_recon = obj.generate_file_manifest(v_paths)
+		pre_recon = obj.calc_file_digests(v_paths)
 
 		# run update, which triggers reconciliation
 		obj.update()
 
 		# get post reconciliation
-		post_recon = obj.generate_file_manifest(v_paths)
+		post_recon = obj.calc_file_digests(v_paths)
 
 		# assert different
 		assert pre_recon != post_recon

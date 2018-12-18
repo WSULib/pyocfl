@@ -938,13 +938,65 @@ class OCFLObject(object):
 		return output_path
 
 
-	def check_fixity(self, update_fixity=False):
+	def check_fixity(self, fixity_algo=None):
 
 		'''
 		Method to check fixity hashes for an object, and optionally update
 		'''
 
-		pass
+		# prepare failures dict
+		fixity_failures = {}
+
+		# determine fixity algo
+		if fixity_algo == None:
+			fixity_algo = self.fixity_algo
+
+		# get fixity digests
+		fixity_old = self.object_inventory.fixity.get(fixity_algo,None)
+
+		if fixity_old != None:
+
+			# re-calc fixity to compare and retrieve algo results
+			fixity_new = self.calc_fixity(
+				use_manifest_digest=False,
+				fixity_algo=fixity_algo,
+				update_fixity=False
+			).get(fixity_algo)
+
+			# compare pre-calculated against newly calculated
+			for digest,files in fixity_old.items():
+				logger.debug('checking digest: %s' % digest)
+
+				# check if fixity exists in new
+				if digest in fixity_new:
+
+					# check if 1:1 with digest from new
+					if files == fixity_new[digest]:
+						logger.debug('match all files')
+					else:
+						logger.debug('files differ, checking each')
+
+						# loop through files in digest and check
+						for file in files:
+							if file not in fixity_new[digest]:
+								if digest not in fixity_failures:
+									fixity_failures[digest] = []
+								fixity_failures[digest].append(file)
+
+				# else, report old fixity digest not present in new
+				else:
+					if digest not in fixity_failures:
+						fixity_failures[digest] = []
+					fixity_failures[digest].append(files)
+
+			# determine results and return
+			if len(fixity_failures) == 0:
+				return True
+			else:
+				return fixity_failures
+
+		else:
+			raise Exception('fixity algorithm %s was not found in previously calculated fixity digests')
 
 
 	def calc_fixity(self,

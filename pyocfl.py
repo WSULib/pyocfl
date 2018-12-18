@@ -375,6 +375,72 @@ class OCFLStorageRoot(object):
 				yield OCFLObject(str(obj_dec_path.parent))
 
 
+	def count_objects(self):
+
+		'''
+		Simple method to count all objects
+		'''
+
+		count = 0
+		for obj in self.get_objects(as_ocfl_objects=False):
+			count += 1
+		return count
+
+
+	def check_fixity(self, fixity_algo=None, use_manifest_digest=None):
+
+		'''
+		Check fixity for all Objects in Storage Root
+		'''
+
+		logger.debug('checking fixity for all objects in storage root')
+
+		# set counter
+		count = 0
+
+		# init results
+		results_d = {}
+
+		for obj in self.get_objects():
+
+			# bumper counter
+			count += 1
+
+			# check fixity
+			if use_manifest_digest != None:
+				obj_fixity_check = obj.check_fixity(fixity_algo=fixity_algo, use_manifest_digest=use_manifest_digest)
+			else:
+				obj_fixity_check = obj.check_fixity(fixity_algo=fixity_algo)
+
+			# if not True, save
+			if obj_fixity_check != True:
+				results_d[obj.id] = obj_fixity_check
+
+		# return
+		logger.debug('%s / %s objects failed fixity check' % (len(results_d),count))
+		if len(results_d) == 0:
+			return True
+		else:
+			return results_d
+
+
+	def calc_fixity(self, fixity_algo=None, use_manifest_digest=None):
+
+		'''
+		Method to calculate fixity for all Objects in Storage Root
+		'''
+
+		logger.debug('calculating fixity for all objects in storage root')
+
+		for obj in self.get_objects():
+
+			# calc fixity
+			if use_manifest_digest != None:
+				obj_fixity_check = obj.calc_fixity(use_manifest_digest=use_manifest_digest, fixity_algo=fixity_algo)
+			else:
+				obj_fixity_check = obj.calc_fixity(fixity_algo=fixity_algo)
+
+
 
 class OCFLObject(object):
 
@@ -938,7 +1004,7 @@ class OCFLObject(object):
 		return output_path
 
 
-	def check_fixity(self, fixity_algo=None):
+	def check_fixity(self, fixity_algo=None, use_manifest_digest=False):
 
 		'''
 		Method to check fixity hashes for an object, and optionally update
@@ -948,7 +1014,9 @@ class OCFLObject(object):
 		fixity_failures = {}
 
 		# determine fixity algo
-		if fixity_algo == None:
+		if use_manifest_digest:
+			fixity_algo = self.object_inventory.digestAlgorithm
+		elif fixity_algo == None:
 			fixity_algo = self.fixity_algo
 
 		# get fixity digests
@@ -958,7 +1026,7 @@ class OCFLObject(object):
 
 			# re-calc fixity to compare and retrieve algo results
 			fixity_new = self.calc_fixity(
-				use_manifest_digest=False,
+				use_manifest_digest=use_manifest_digest,
 				fixity_algo=fixity_algo,
 				update_fixity=False
 			).get(fixity_algo)
@@ -971,10 +1039,7 @@ class OCFLObject(object):
 				if digest in fixity_new:
 
 					# check if 1:1 with digest from new
-					if files == fixity_new[digest]:
-						logger.debug('match all files')
-					else:
-						logger.debug('files differ, checking each')
+					if files != fixity_new[digest]:
 
 						# loop through files in digest and check
 						for file in files:
@@ -996,7 +1061,7 @@ class OCFLObject(object):
 				return fixity_failures
 
 		else:
-			raise Exception('fixity algorithm %s was not found in previously calculated fixity digests')
+			return {'no_fixity_digests_for_algorithm':fixity_algo}
 
 
 	def calc_fixity(self,
@@ -1020,7 +1085,9 @@ class OCFLObject(object):
 		else:
 
 			# determine fixity algo
-			if fixity_algo == None:
+			if use_manifest_digest:
+				fixity_algo = self.object_inventory.digestAlgorithm
+			elif fixity_algo == None:
 				fixity_algo = self.fixity_algo
 
 			# use generate_file_manifest

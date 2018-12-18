@@ -48,7 +48,7 @@ def ls(args):
 def cd(args):
 
 	'''
-	OS cmd to support changing directory to OCFL Objct
+	OS cmd to support changing directory to Object
 	'''
 
 	# init OCFLStorageRoot instance
@@ -71,7 +71,16 @@ def cd(args):
 def mv(args):
 
 	'''
-	OS cmd to support moving OCFL objects
+	OS cmd to support moving Objects
+	'''
+
+	pass
+
+
+def tree(args):
+
+	'''
+	OS cmd to print tree of Object
 	'''
 
 	pass
@@ -81,7 +90,8 @@ def mv(args):
 cmd_map = {
 	'ls':ls,
 	'cd':cd,
-	'mv':mv
+	'mv':mv,
+	'tree':tree
 }
 
 

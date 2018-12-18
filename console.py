@@ -2,8 +2,7 @@
 from distutils.dir_util import copy_tree
 import uuid
 
-from pyocfl import *
-
+from pyocfl.pyocfl import *
 
 
 def scaffold_demo_data(storage='storage_pair_tree'):

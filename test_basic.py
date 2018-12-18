@@ -9,7 +9,7 @@ import shutil
 import uuid
 
 # pyocfl
-from pyocfl import *
+from pyocfl.pyocfl import *
 
 
 

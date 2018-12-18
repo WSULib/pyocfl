@@ -39,6 +39,7 @@ DEFAULT_STORAGE_ROOT_STORAGE_ID_ALGO = 'md5' # ['md5','sha256','sha512']
 DEFAULT_OBJECT_CONFORMANCE = 'ocfl_object'
 DEFAULT_OBJECT_VERSION = '1.0'
 DEFAULT_OBJECT_FILE_DIGEST_ALGO = 'md5' # ['md5','sha256','sha512']
+DEFAULT_OBJECT_FILE_FIXITY_ALGO = 'md5' # ['md5','sha256','sha512']
 
 
 class InvalidOCFLObject(Exception):
@@ -399,7 +400,8 @@ class OCFLObject(object):
 		auto_load=True,
 		conformance=DEFAULT_OBJECT_CONFORMANCE,
 		version=DEFAULT_OBJECT_VERSION,
-		file_digest_algo=DEFAULT_OBJECT_FILE_DIGEST_ALGO):
+		file_digest_algo=DEFAULT_OBJECT_FILE_DIGEST_ALGO,
+		fixity_algo=DEFAULT_OBJECT_FILE_FIXITY_ALGO):
 
 		'''
 		Args:
@@ -419,8 +421,9 @@ class OCFLObject(object):
 		else:
 			self.path = path
 
-		# set algo
+		# set algos
 		self.file_digest_algo = file_digest_algo
+		self.fixity_algo = fixity_algo
 
 		# if storage_root is provided
 		self.storage_root = storage_root
@@ -602,7 +605,7 @@ class OCFLObject(object):
 			raise Exception('algorithm "%s" is not part of hashlib library' % file_digest_algo)
 
 
-	def generate_file_manifest(self, path_list, version_state=False):
+	def calc_file_digests(self, path_list, version_state=False, file_digest_algo=None):
 
 		'''
 		Method to generate digest of files
@@ -614,6 +617,10 @@ class OCFLObject(object):
 
 		# init dictionary to return
 		digest_d = {}
+
+		# if file_digest_algo not passed, use from self
+		if file_digest_algo == None:
+			file_digest_algo = self.file_digest_algo
 
 		# loop through provided paths
 		for path in path_list:
@@ -628,7 +635,7 @@ class OCFLObject(object):
 			for f in files:
 
 				# calc digest
-				digest = self._calc_file_digest(f, file_digest_algo=self.file_digest_algo)
+				digest = self._calc_file_digest(f, file_digest_algo=file_digest_algo)
 
 				# if for version, make path relative
 				if version_state:
@@ -649,25 +656,32 @@ class OCFLObject(object):
 		return digest_d
 
 
-	def update(self):
+	def update(self,
+		write_inventories=True,
+		reconcile_deltas=True,
+		calc_fixity=False):
 
 		'''
 		Method to update object
 			- reconcile versions
 				- remove files if not forward-delta
 			- udpate inventory meta-digests
-
-		TODO: MUCH of this can be refactored into methods, and replace much from new()
 		'''
 
 		# debug
 		stime = time.time()
 
 		# write inventories
-		self.write_inventories()
+		if write_inventories:
+			self.write_inventories()
 
 		# reconcile deltas
-		self.reconcile_deltas()
+		if reconcile_deltas:
+			self.reconcile_deltas()
+
+		# update fixity
+		if calc_fixity:
+			self.calc_fixity(fixity_algo=self.fixity_algo)
 
 		# debug
 		logger.debug('updated elapsed: %s' % (time.time()-stime))
@@ -684,12 +698,12 @@ class OCFLObject(object):
 		fs_versions = self.get_fs_version_numbers()
 
 		# calc object manifest
-		self.object_inventory.update_object_manifest(self.generate_file_manifest([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ]))
+		self.object_inventory.manifest = self.calc_file_digests([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ])
 
 		# set version state
 		for v in fs_versions:
 			self.object_inventory.update_version_state(
-				'v%s' % v, self.generate_file_manifest([os.path.join(self.full_path,'v%s/content' % v)], version_state=True)
+				'v%s' % v, self.calc_file_digests([os.path.join(self.full_path,'v%s/content' % v)], version_state=True)
 			)
 
 		# write inventory
@@ -924,6 +938,55 @@ class OCFLObject(object):
 		return output_path
 
 
+	def check_fixity(self, update_fixity=False):
+
+		'''
+		Method to check fixity hashes for an object, and optionally update
+		'''
+
+		pass
+
+
+	def calc_fixity(self,
+		use_manifest_digest=False,
+		fixity_algo=None,
+		update_fixity=True):
+
+		'''
+		Method to update fixity hashes for an object
+		'''
+
+		logger.debug('calculating fixity hashes')
+
+		# if using manifest digest, copy wholesale
+		if use_manifest_digest:
+			fixity_d = {
+				self.object_inventory.digestAlgorithm: self.object_inventory.manifest
+			}
+
+		# else, compute
+		else:
+
+			# determine fixity algo
+			if fixity_algo == None:
+				fixity_algo = self.fixity_algo
+
+			# use generate_file_manifest
+			fixity_d = {
+				fixity_algo: self.calc_file_digests(
+					[os.path.join(self.full_path,'v%s/content' % v) for v in self.object_inventory.get_version_numbers()],
+					file_digest_algo=fixity_algo
+				)
+			}
+
+		# write fixity and update inventories
+		if update_fixity:
+			self.object_inventory.update_fixity(fixity_d)
+			self.update(write_inventories=True, reconcile_deltas=False, calc_fixity=False)
+
+		# return
+		return fixity_d
+
 
 
 class OCFLObjectInventory(object):
@@ -945,15 +1008,24 @@ class OCFLObjectInventory(object):
 			else:
 				raise Exception('JSON or python dictionary required when passed as inventory')
 
+			# parse
+			self._parse_inventory()
 
-	@property
-	def manifest(self):
+
+	def _parse_inventory(self):
 
 		'''
-		Return manifest as property
+		Method to parse inventory dictionary
 		'''
 
-		return self.inventory['manifest']
+		# manifest
+		self.digestAlgorithm = self.inventory.get('digestAlgorithm',None)
+
+		# manifest
+		self.manifest = self.inventory.get('manifest',{})
+
+		# fixity
+		self.fixity = self.inventory.get('fixity',{})
 
 
 	def new(self,**kwargs):
@@ -983,15 +1055,6 @@ class OCFLObjectInventory(object):
 
 		# return
 		return self.inventory
-
-
-	def update_object_manifest(self, digest_d):
-
-		'''
-		Method to update object manfiest with passed dictionary of digests
-		'''
-
-		self.inventory['manifest'] = digest_d
 
 
 	def update_version_state(self, version, digest_d):
@@ -1038,6 +1101,20 @@ class OCFLObjectInventory(object):
 			return self.inventory['versions'][v_key]
 		else:
 			return None
+
+
+	def update_fixity(self, fixity_d):
+
+		'''
+		Method to update object manfiest with passed fixity dictionary
+		'''
+
+		# create fixity entry in inventory if not present
+		if 'fixity' not in self.inventory:
+			self.inventory['fixity'] = {}
+
+		# update
+		self.fixity.update(fixity_d)
 
 
 

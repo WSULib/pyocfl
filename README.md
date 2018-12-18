@@ -215,7 +215,8 @@ test_data/goober/51/78/15/a5/04/46/ac/68/9c/54/f4/a0/86/0f/77/f1/517815a50446ac6
 
 Perhaps we also pause to reflect that typing pairtree directory structures by hand is not fun (though tab completion helps and is encouraged).  Thankfully, we can use the origianl identifier of the Object we created to select it.  And, then, reconcile this new `v2` version we just created.
 
-Back from the python shell, let's load the Storage Root and Object if the shell had been closed and/or to demonstrate retrieving pre-made Storage Roots and Objects
+Back from the python shell, let's load the Storage Root and Object if the shell had been closed and/or to demonstrate retrieving pre-made Storage Roots and Objects:
+
 ```
 # get Storage Root
 sr = OCFLStorageRoot('test_data/goober')
@@ -350,4 +351,137 @@ Out[14]:
 ```
 
 Unlike `sr.get_object()` which is tailored for each storage engine, for simplicity's sake, [pathlib](https://docs.python.org/3.5/library/pathlib.html) and [glob](https://docs.python.org/3.5/library/glob.html) modules are used to locate and return objects from within a Storage Engine.  However, there exists considerable room for customizing how this retrieval and return might function, particularly when the storage engine is known (e.g. simple, pairtree, etc.).
+
+
+### Fixity Checking/Setting
+
+OCFL supports storing fixity digests in the `inventory.json` under `fixity`.
+
+#### Object Fixity
+
+To **calculate** and **write** fixity for an object, use the `calc_fixity` method:
+
+```
+# pre-loaded OCFL object, obj
+obj.calc_fixity()
+
+Out[18]: 
+{'md5': {'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt'],
+  'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml']}}
+```
+
+Looking at the `inventory.json` for this file, we see the `fixity` segment has been added:
+
+```
+{'digestAlgorithm': 'md5',
+ 'fixity': {'md5': {'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt'],
+   'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml']}},
+ 'head': 'v1',
+ 'id': 'raw_obj1',
+ 'manifest': {'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt'],
+  'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml']},
+ 'type': 'Object',
+ 'versions': {'v1': {'created': '2018-12-17T12:16:28Z',
+   'message': None,
+   'state': {'c4b8393f8fdb92998370f404e8f7cbfe': ['level1/level2/bar.txt'],
+    'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['foo.xml']}}}}
+```
+
+Running `calc_fixity` with no arguments:
+
+  1. uses the fixity algorithm configured for the object at `self.fixity_algo`
+  2. writes to `inventory.json` and updates all inventory digests
+
+However, we can pass other arguments as well:
+
+```
+# use pre-calculated digests from manifest
+'''
+pro: faster, no digest re-calculation needed
+con: limited to algorithm from digestAlgorithm, manifest cannot be stale
+'''
+obj.calc_fixity()
+
+# provide another algorithm to use
+'''
+Unlike manifests, fixity digests are saved separately for each algorithm run.
+'''
+obj.calc_fixity(fixity_algo='sha512')
+```
+
+We can see an example of multiple fixity digest algorithms saved:
+
+```
+{'md5': {'c4b8393f8fdb92998370f404e8f7cbfe': ['v1/content/level1/level2/bar.txt'],
+  'cacaa052d4f1ebf6dd0f2cd99ad698d0': ['v1/content/foo.xml']},
+ 'sha512': {'66f05321727c50ab2d95735b552cb87880a30f3f74b8ad8b4f796216fb45455f0a185806fd4e09fd5f02990e11ffad8f7566cd999561baf70686a61a92536f54': ['v1/content/foo.xml'],
+  'e970d166302e4c7871bb7d109a6a48419e1878e5b0eb2d4f01fd8ba1273884817bfd549f0b6664e5004852b1bbe7f3cd4a9dc49cee2b76ec988220630338762a': ['v1/content/level1/level2/bar.txt']}}
+```
+
+To **check** fixity for an object, use the `check_fixity` method:
+
+```
+# a True result indicates previously stored fixity digests are consistent with calculated digests
+obj.check_fixity()
+
+Out[24]: True
+```
+
+If a file has changed for whatever reason between updates to the `fixity` segment in `inventory.json`, this will be revealed in the output:
+
+```
+# content for foo.xml was altered before running
+obj.check_fixity()
+
+Out[27]: {'cacaa052d4f1ebf6dd0f2cd99ad698d0': [['v1/content/foo.xml']]}
+
+# same for other algorithms saved
+obj.check_fixity(fixity_algo='sha512')
+
+Out[28]: {'66f05321727c50ab2d95735b552cb87880a30f3f74b8ad8b4f796216fb45455f0a185806fd4e09fd5f02990e11ffad8f7566cd999561baf70686a61a92536f54': [['v1/content/foo.xml']]}
+```
+
+If we are comfortable with the digests that are calculated by necessity for the manifest, we can use those to set and check fixity:
+
+```
+obj.calc_fixity(use_manifest_digest=True)
+obj.check_fixity(use_manifest_digest=True)
+```
+
+
+#### Storage Root Fixity
+
+We can do some of this work at the Storage Root level as well.
+
+To **calculate** fixity for all objects in Storage Root:
+
+```
+# defaults
+sr.calc_fixity()
+
+# pass arguments similar to object context
+sr.calc_fixity(fixity_algo='sha512')
+```
+
+To **check** fixity for all objects:
+
+```
+# defaults
+sr.check_fixity()
+
+# pass arguments similar to object context
+sr.calc_fixity(fixity_algo='sha512')
+```
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -391,6 +391,11 @@ class OCFLStorageRoot(object):
 
 		'''
 		Check fixity for all Objects in Storage Root
+
+		Args:
+			fixity_algo (str): digest algorithm ['md5','sha256','sha512',etc.]
+			use_manifest_digest (bool): If True, do not recalculate digests, but instead use from manifest
+				- pro: no re-compute time, con: limited to digest and freshness of manifest
 		'''
 
 		logger.debug('checking fixity for all objects in storage root')
@@ -428,6 +433,11 @@ class OCFLStorageRoot(object):
 
 		'''
 		Method to calculate fixity for all Objects in Storage Root
+
+		Args:
+			fixity_algo (str): digest algorithm ['md5','sha256','sha512',etc.]
+			use_manifest_digest (bool): If True, do not recalculate digests, but instead use from manifest
+				- pro: no re-compute time, con: limited to digest and freshness of manifest
 		'''
 
 		logger.debug('calculating fixity for all objects in storage root')
@@ -1008,6 +1018,11 @@ class OCFLObject(object):
 
 		'''
 		Method to check fixity hashes for an object, and optionally update
+
+		Args:
+			fixity_algo (str): digest algorithm ['md5','sha256','sha512',etc.]
+			use_manifest_digest (bool): If True, do not recalculate digests, but instead use from manifest
+				- pro: no re-compute time, con: limited to digest and freshness of manifest
 		'''
 
 		# prepare failures dict
@@ -1071,6 +1086,12 @@ class OCFLObject(object):
 
 		'''
 		Method to update fixity hashes for an object
+
+		Args:
+			fixity_algo (str): digest algorithm ['md5','sha256','sha512',etc.]
+			use_manifest_digest (bool): If True, do not recalculate digests, but instead use from manifest
+				- pro: no re-compute time, con: limited to digest and freshness of manifest
+			update_fixity (bool): If True, write fixity to inventory.json
 		'''
 
 		logger.debug('calculating fixity hashes')

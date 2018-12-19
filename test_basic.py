@@ -17,7 +17,7 @@ from pyocfl.pyocfl import *
 # Defaults
 ############################
 TESTS_DIR = os.path.join('test_data', 'test_%s' % uuid.uuid4().hex)
-TEARDOWN = False
+TEARDOWN = True
 
 
 
@@ -185,20 +185,6 @@ class TestOCFLObject(object):
 		assert obj.is_ocfl_object() != False
 
 
-	# def test_move_obj(self):
-
-	# 	'''
-	# 	Test moving of Object to new id
-	# 	'''
-
-	# 	# load storage root
-	# 	storage_location = '%s/sr1' % TESTS_DIR
-	# 	sr = OCFLStorageRoot(storage_location)
-
-	# 	# get object
-	# 	obj = sr.get_object('ocfl_obj1')
-
-
 	def test_version_details(self):
 
 		'''
@@ -221,6 +207,34 @@ class TestOCFLObject(object):
 		# retrieve v1 entry from inventory as int and string
 		assert type(obj.object_inventory.get_version_entry(1)) == dict
 		assert type(obj.object_inventory.get_version_entry('v1')) == dict
+
+
+	def test_move_obj(self):
+
+		'''
+		Test moving of Object to new id
+		'''
+
+		# load storage root
+		storage_location = '%s/sr1' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get object
+		obj = sr.get_object('ocfl_obj1')
+
+		# move to ocfl_obj100
+		sr.move_object(obj, 'ocfl_obj100')
+
+		# retrieve object with new id
+		obj_moved = sr.get_object('ocfl_obj100')
+
+		# assertions
+		assert obj.is_ocfl_object() != False
+		assert obj.id == 'ocfl_obj100'
+
+		# attempt retrieval of old object, confirm not present
+		obj_old = sr.get_object('ocfl_obj1')
+		assert obj_old == None
 
 
 	def test_file_manifest_generation(self):
@@ -345,22 +359,63 @@ class TestOCFLObject(object):
 
 		'''
 		Test the calculation of fixity over a handful of digest algorithms
+			- 3a3f43c170434837beb7cef86859ad3c, 100 files
 		'''
 
 		# load sr2
 		storage_location = '%s/sr2' % TESTS_DIR
 		sr = OCFLStorageRoot(storage_location)
 
-		# get raw_obj2
+		# get obj with 100 files
+		obj = sr.get_object('3a3f43c170434837beb7cef86859ad3c')
+
+		# generate fixity using digests from manifest and assert
+		obj.calc_fixity(use_manifest_digest=True)
+		assert obj.object_inventory.digestAlgorithm in obj.object_inventory.fixity
+
+		# calc fixity with default fixity algo
+		obj.calc_fixity()
+		assert obj.fixity_algo in obj.object_inventory.fixity
+
+		# calc sha512
+		obj.calc_fixity(fixity_algo='sha512')
+		assert 'sha512' in obj.object_inventory.fixity
+
+		# assert that sha512 for 0.txt
+		digest = 'b3a58822e5c81430c9a74469eaa13cfacb7c992b81597a60d8766fbf908c05244fbf3a10851dd11cdf0e2df43ea83b0269838179b5c8d84a5c694bc2f5b1f06a'
+		assert obj.object_inventory.fixity['sha512'][digest] == ['v1/content/0.txt']
 
 
 	def test_fixity_check(self):
 
 		'''
 		Test the calculation of fixity over a handful of digest algorithms
+			- 3a3f43c170434837beb7cef86859ad3c, 100 files
 		'''
 
-		pass
+		# load sr2
+		storage_location = '%s/sr2' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get obj with 100 files
+		obj = sr.get_object('3a3f43c170434837beb7cef86859ad3c')
+
+		# check fixity before modifications
+		assert obj.check_fixity()
+
+		# modify 0.txt
+		with open(os.path.join(obj.full_path, 'v1/content/0.txt'), 'w') as f:
+			f.write('THIS FILE HAS BEEN CHANGED.')
+
+		# re-run fixity, assert fails
+		assert obj.check_fixity(fixity_algo='sha512') == {
+			'b3a58822e5c81430c9a74469eaa13cfacb7c992b81597a60d8766fbf908c05244fbf3a10851dd11cdf0e2df43ea83b0269838179b5c8d84a5c694bc2f5b1f06a': [['v1/content/0.txt']]
+		}
+
+		# re-calc fixity for default (md5) and sha512, confirm fixes
+		obj.calc_fixity()
+		obj.calc_fixity(fixity_algo='sha512')
+		assert obj.check_fixity()
 
 
 

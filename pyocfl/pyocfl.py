@@ -296,10 +296,13 @@ class OCFLStorageRoot(object):
 			storage_path = self._calc_storage_path(storage_id)
 
 			# move object
-			shutil.move(os.path.join(self.path, self._calc_storage_path(self._calc_storage_id(ocfl_obj.id))), os.path.join(self.path, storage_path))
+			shutil.move(
+				os.path.join(self.path, self._calc_storage_path(self._calc_storage_id(ocfl_obj.id))),
+				os.path.join(self.path, storage_path)
+			)
 
 			# udpate object
-			ocfl_obj.path = storage_path
+			ocfl_obj.path = os.path.join(self.path, storage_path)
 			ocfl_obj.object_inventory.inventory['id'] = target_id
 
 		# update
@@ -774,7 +777,7 @@ class OCFLObject(object):
 		fs_versions = self.get_fs_version_numbers()
 
 		# calc object manifest
-		self.object_inventory.manifest = self.calc_file_digests([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ])
+		self.object_inventory.inventory['manifest'] = self.calc_file_digests([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ])
 
 		# set version state
 		for v in fs_versions:
@@ -1148,24 +1151,23 @@ class OCFLObjectInventory(object):
 			else:
 				raise Exception('JSON or python dictionary required when passed as inventory')
 
-			# parse
-			self._parse_inventory()
+
+	@property
+	def digestAlgorithm(self):
+
+		return self.inventory.get('digestAlgorithm',None)
 
 
-	def _parse_inventory(self):
+	@property
+	def manifest(self):
 
-		'''
-		Method to parse inventory dictionary
-		'''
+		return self.inventory.get('manifest',None)
 
-		# manifest
-		self.digestAlgorithm = self.inventory.get('digestAlgorithm',None)
 
-		# manifest
-		self.manifest = self.inventory.get('manifest',{})
+	@property
+	def fixity(self):
 
-		# fixity
-		self.fixity = self.inventory.get('fixity',{})
+		return self.inventory.get('fixity',None)
 
 
 	def new(self,**kwargs):
@@ -1254,7 +1256,7 @@ class OCFLObjectInventory(object):
 			self.inventory['fixity'] = {}
 
 		# update
-		self.fixity.update(fixity_d)
+		self.inventory['fixity'].update(fixity_d)
 
 
 

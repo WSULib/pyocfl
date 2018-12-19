@@ -1,0 +1,22 @@
+{
+    "digestAlgorithm": "md5",
+    "head": "v1",
+    "id": "173df6d4bdbf49b7ad31a6ff9488bf56",
+    "manifest": {
+        "d41d8cd98f00b204e9800998ecf8427e": [
+            "v1/content/boxes/tapes/wraps/leaves.txt"
+        ]
+    },
+    "type": "Object",
+    "versions": {
+        "v1": {
+            "created": "2018-12-19T08:28:08Z",
+            "message": null,
+            "state": {
+                "d41d8cd98f00b204e9800998ecf8427e": [
+                    "boxes/tapes/wraps/leaves.txt"
+                ]
+            }
+        }
+    }
+}

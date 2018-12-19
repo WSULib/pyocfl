@@ -2,7 +2,12 @@
     "digestAlgorithm": "md5",
     "head": "v1",
     "id": "52cbb3379e7c446a97a64b449e35d43b",
-    "manifest": {},
+    "manifest": {
+        "d41d8cd98f00b204e9800998ecf8427e": [
+            "v1/content/f1.txt",
+            "v1/content/f2.txt"
+        ]
+    },
     "type": "Object",
     "versions": {
         "v1": {

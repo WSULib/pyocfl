@@ -1151,9 +1151,6 @@ class OCFLObjectInventory(object):
 			else:
 				raise Exception('JSON or python dictionary required when passed as inventory')
 
-			# parse
-			self._parse_inventory()
-
 
 	@property
 	def digestAlgorithm(self):
@@ -1171,22 +1168,6 @@ class OCFLObjectInventory(object):
 	def fixity(self):
 
 		return self.inventory.get('fixity',None)
-
-
-	# def _parse_inventory(self):
-
-	# 	'''
-	# 	Method to parse inventory dictionary
-	# 	'''
-
-	# 	# manifest
-	# 	self.digestAlgorithm = self.inventory.get('digestAlgorithm',None)
-
-	# 	# manifest
-	# 	self.manifest = self.inventory.get('manifest',{})
-
-	# 	# fixity
-	# 	self.fixity = self.inventory.get('fixity',{})
 
 
 	def new(self,**kwargs):

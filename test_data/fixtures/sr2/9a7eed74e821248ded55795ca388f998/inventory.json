@@ -2,7 +2,11 @@
     "digestAlgorithm": "md5",
     "head": "v1",
     "id": "3408418654434ff5a8512ac32f37302f",
-    "manifest": {},
+    "manifest": {
+        "d41d8cd98f00b204e9800998ecf8427e": [
+            "v1/content/waterbottle.txt"
+        ]
+    },
     "type": "Object",
     "versions": {
         "v1": {

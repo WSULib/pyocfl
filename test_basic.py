@@ -17,7 +17,7 @@ from pyocfl.pyocfl import *
 # Defaults
 ############################
 TESTS_DIR = os.path.join('test_data', 'test_%s' % uuid.uuid4().hex)
-TEARDOWN = True
+TEARDOWN = False
 
 
 
@@ -37,7 +37,7 @@ def setup_module(session):
 	copy_tree('test_data/fixtures', fixtures_dir)
 
 	# copy existing StorageRoots (sr) for use during testing
-	for sr in ['sr1','sr_reconcile']:
+	for sr in ['sr1','sr2','sr_reconcile']:
 		target_dir = os.path.join(TESTS_DIR,sr)
 		os.makedirs(target_dir)
 		copy_tree(os.path.join('test_data/fixtures',sr), target_dir)
@@ -185,21 +185,18 @@ class TestOCFLObject(object):
 		assert obj.is_ocfl_object() != False
 
 
-	def test_get_obj(self):
+	# def test_move_obj(self):
 
-		'''
-		Test retrieval of object with id only
-		'''
+	# 	'''
+	# 	Test moving of Object to new id
+	# 	'''
 
-		# load storage root
-		storage_location = '%s/sr1' % TESTS_DIR
-		sr = OCFLStorageRoot(storage_location)
+	# 	# load storage root
+	# 	storage_location = '%s/sr1' % TESTS_DIR
+	# 	sr = OCFLStorageRoot(storage_location)
 
-		# get object
-		obj = sr.get_object('ocfl_obj1')
-
-		# assert
-		assert obj.is_ocfl_object() != False
+	# 	# get object
+	# 	obj = sr.get_object('ocfl_obj1')
 
 
 	def test_version_details(self):
@@ -342,6 +339,28 @@ class TestOCFLObject(object):
 			'%s/checkouts/%s/v3/foo.xml' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v3/penny.txt' % (TESTS_DIR, obj.id)
 		]
+
+
+	def test_fixity_calculate(self):
+
+		'''
+		Test the calculation of fixity over a handful of digest algorithms
+		'''
+
+		# load sr2
+		storage_location = '%s/sr2' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# get raw_obj2
+
+
+	def test_fixity_check(self):
+
+		'''
+		Test the calculation of fixity over a handful of digest algorithms
+		'''
+
+		pass
 
 
 

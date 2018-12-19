@@ -1,0 +1,19 @@
+{
+    "digestAlgorithm": "md5",
+    "head": "v1",
+    "id": "52cbb3379e7c446a97a64b449e35d43b",
+    "manifest": {},
+    "type": "Object",
+    "versions": {
+        "v1": {
+            "created": "2018-12-19T08:28:08Z",
+            "message": null,
+            "state": {
+                "d41d8cd98f00b204e9800998ecf8427e": [
+                    "f1.txt",
+                    "f2.txt"
+                ]
+            }
+        }
+    }
+}

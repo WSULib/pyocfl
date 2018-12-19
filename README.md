@@ -9,18 +9,32 @@ pytest -s -vv
 
 ## Installation
 
-**Note:** Pre-package installations instructions, assuming clone of repository and running python shell from cloned directory.  Once packaged, will be more along the lines of `from pyocfl import *` from anywhere.
+> **Note:** These instructions are pre-deployment to PyPI
 
-Install dependencies:
+Clone repository and change into directory:
+
+```
+git clone https://github.com/wsulib/pyocfl
+cd pyocfl
+```
+
+Install pyocfl as module:
+
+```
+pip install -e .
+```
+
+Install additional dependencies:
 ```
 pip install -r requirements.txt
 ```
+
 
 ## Use as Python library
 
 Load pyocfl library:
 ```
-from pyocfl import *
+from pyocfl.pyocfl import *
 ```
 
 

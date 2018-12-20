@@ -25,6 +25,7 @@ TEARDOWN = True
 # Setup Module
 ############################
 def setup_module(session):
+
 	print('SETUP...')
 
 	# create tests directory
@@ -48,6 +49,7 @@ def setup_module(session):
 # Teardown Module
 ###########################
 def teardown_module(session):
+
 	if TEARDOWN:
 		print('TEARDOWN...')
 
@@ -168,7 +170,7 @@ class TestOCFLObject(object):
 		sr.add_object(obj, 'ocfl_obj1')
 
 
-	def test_get_obj(self):
+	def test_get_obj_by_id(self):
 
 		'''
 		Test retrieval of object with id only
@@ -182,6 +184,30 @@ class TestOCFLObject(object):
 		obj = sr.get_object('ocfl_obj1')
 
 		# assert
+		assert obj.exists
+		assert obj.is_ocfl_object() != False
+
+
+	def test_get_obj_by_path(self):
+
+		'''
+		Test retrieval of object with id only
+		'''
+
+		# load storage root
+		storage_location = '%s/sr1' % TESTS_DIR
+		sr = OCFLStorageRoot(storage_location)
+
+		# calc path
+		obj_id = 'ocfl_obj1'
+		storage_id = sr._calc_storage_id(obj_id)
+		obj_path = sr._calc_storage_path(storage_id)
+
+		# get object
+		obj = sr.get_object(obj_path=obj_path)
+
+		# assert
+		assert obj.exists
 		assert obj.is_ocfl_object() != False
 
 
@@ -232,9 +258,9 @@ class TestOCFLObject(object):
 		assert obj.is_ocfl_object() != False
 		assert obj.id == 'ocfl_obj100'
 
-		# attempt retrieval of old object, confirm not present
+		# attempt retrieval of old object, confirm does not exist
 		obj_old = sr.get_object('ocfl_obj1')
-		assert obj_old == None
+		assert not obj_old.exists
 
 
 	def test_file_manifest_generation(self):

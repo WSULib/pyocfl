@@ -42,8 +42,12 @@ DEFAULT_OBJECT_FILE_DIGEST_ALGO = 'md5' # ['md5','sha256','sha512']
 DEFAULT_OBJECT_FILE_FIXITY_ALGO = 'md5' # ['md5','sha256','sha512']
 
 
-class InvalidOCFLObject(Exception):
 
+class InvalidOCFLObject(Exception):
+	pass
+
+
+class MissingStorageRoot(Exception):
 	pass
 
 
@@ -129,19 +133,23 @@ class OCFLStorageRoot(object):
 		if path != None:
 			self.path = path
 
-		# update instance path
+		# path is required
 		if self.path == None:
 			raise Exception('when creating new StorageRoot, path must be set')
 
 		# check if path exists and is directory
 		if os.path.exists(self.path):
-			if not os.path.isdir(self.path):
-				raise Exception('%s exists and is not a directory')
 
-		# if does not exist, create
-		else:
-			logger.debug('%s does not exist, creating' % self.path)
-			self._create_storage_root(self.path, dec_readme=dec_readme, storage_readme=storage_readme)
+			# is file
+			if not os.path.isdir(self.path):
+				raise Exception('%s exists and is not a directory' % self.path)
+
+			# is dir, but already Storage Root
+			elif os.path.isdir(self.path) and self.verify_dec():
+				raise Exception('%s exists, but appears to be an OCFL Storage Root already' % self.path)
+
+		# if exceptions not raised, create
+		self._create_storage_root(self.path, dec_readme=dec_readme, storage_readme=storage_readme)
 
 
 	def _create_storage_root(self, path, dec_readme=None, storage_readme=None):
@@ -154,7 +162,8 @@ class OCFLStorageRoot(object):
 		'''
 
 		# create path
-		os.makedirs(path)
+		if not os.path.exists(path):
+			os.makedirs(path)
 
 		# write StorageRoot declaration file
 		open('%s/0=%s_%s' % (path, self.conformance, self.version), 'w').close()
@@ -200,8 +209,6 @@ class OCFLStorageRoot(object):
 		Method to add OCFLObject to OCFLStorageRoot
 			- confirms ocfl_obj is valid ocfl_obj
 
-		NOTE: possibility of post_add hook?
-
 		Args:
 			ocfl_obj (pyocfl.OCFLObject): Object instance
 			target_id (str): new target id, overwriting what is found in ocfl_obj.id
@@ -235,49 +242,80 @@ class OCFLStorageRoot(object):
 		ocfl_obj.update()
 
 
-	def get_object(self, obj_input, id_type='id'):
+	def get_object(self, obj_id=None, obj_path=None):
 
 		'''
-		Method to calculate path, load and return OCFLObject instance
+		Method to retrieve object
+
+		Args:
+			obj_id (str): If id provided, calculate path based on StorageRoot's storage engine
+			obj_path (str): If object path provided, use without calculation
+
+		Returns:
+			OCFLObject,None
 		'''
 
-		# if id_type is 'id', calc fs path
-		if id_type == 'id':
+		# if obj_id provided
+		if obj_id != None:
 
 			# prepare storage id and path
-			storage_id = self._calc_storage_id(obj_input)
+			storage_id = self._calc_storage_id(obj_id)
 			obj_path = self._calc_storage_path(storage_id)
 
-		# else, set path to provided input
-		else:
-			obj_path = obj_input
-
-		# create full path
-		obj_full_path = os.path.join(self.path, obj_path)
-
-		# check if path exists
-		if os.path.exists(obj_full_path) and os.path.isdir(obj_full_path):
-
-			# init OCFLObject and return
-			search_obj = OCFLObject(obj_full_path)
-
-			# verify valid ocfl_object
-			if not search_obj.is_ocfl_object():
-				raise InvalidOCFLObject
-			else:
-				return search_obj
-
-		else:
-			return None
+		# init OCFLObject and return
+		return OCFLObject(obj_path, storage_root=self)
 
 
-	def move_object(self, ocfl_obj, target_id):
+	def get_objects(self, as_ocfl_objects=True):
+
+		'''
+		Return generator of all objects in Storage Root
+		'''
+
+		# get pathlib
+		p = pathlib.Path(self.path)
+
+		# init generator of object declaration paths
+		obj_dec_paths = p.glob('**/0=ocfl_object_*')
+
+		# wrap in generator to return parent, obj path
+		return self._obj_dec_paths_generator(obj_dec_paths, as_ocfl_objects=as_ocfl_objects)
+
+
+	def _obj_dec_paths_generator(self, obj_dec_paths, as_ocfl_objects=True):
+
+		'''
+		Wrapper to accept generator of object declaration paths, return object path
+		'''
+
+		for obj_dec_path in obj_dec_paths:
+
+			# yield object path
+			if not as_ocfl_objects:
+				yield str(obj_dec_path.parent).replace(self.path,'').lstrip('/')
+
+			# yield object instance
+			elif as_ocfl_objects:
+				yield OCFLObject(str(obj_dec_path.parent).replace(self.path,'').lstrip('/'), storage_root=self)
+
+
+	@property
+	def objects(self):
+
+		'''
+		Convenience property for objects
+		'''
+
+		return self.get_objects()
+
+
+	def move_object(self, obj, target_id):
 
 		'''
 		Method to move object
 
 		Args:
-			ocfl_obj (pyocfl.OCFLObject): Object instance
+			obj (pyocfl.OCFLObject): Object instance to move
 			target_id (str): new target id
 		'''
 
@@ -285,28 +323,36 @@ class OCFLStorageRoot(object):
 		search_obj = self.get_object(target_id)
 
 		# if content found, raise exception
-		if search_obj != None:
+		if search_obj.exists:
 			raise Exception('Content found at: %s' % search_obj.path)
 
 		# else, continue
 		else:
 
 			# prepare storage id and path
-			storage_id = self._calc_storage_id(target_id)
-			storage_path = self._calc_storage_path(storage_id)
+			target_storage_id = self._calc_storage_id(target_id)
+			target_storage_path = self._calc_storage_path(target_storage_id)
 
-			# move object
-			shutil.move(
-				os.path.join(self.path, self._calc_storage_path(self._calc_storage_id(ocfl_obj.id))),
-				os.path.join(self.path, storage_path)
-			)
+			# if incoming object has storage root, use to determine path
+			if obj.storage_root != None:
+				shutil.move(
+					os.path.join(obj.storage_root.path, obj.path),
+					os.path.join(self.path, target_storage_path)
+				)
+
+			# else, trust obj.path
+			else:
+				shutil.move(
+					os.path.join(obj.path),
+					os.path.join(self.path, target_storage_path)
+				)
 
 			# udpate object
-			ocfl_obj.path = os.path.join(self.path, storage_path)
-			ocfl_obj.object_inventory.inventory['id'] = target_id
+			obj.path = target_storage_path
+			obj.object_inventory.inventory['id'] = target_id
 
 		# update
-		ocfl_obj.update()
+		obj.update()
 
 
 	def _calc_storage_id(self, obj_id):
@@ -343,39 +389,6 @@ class OCFLStorageRoot(object):
 
 		else:
 			raise Exception('"%s" is not a recognized storage engine' % self.storage)
-
-
-	def get_objects(self, as_ocfl_objects=True):
-
-		'''
-		Return generator of all objects in Storage Root
-		'''
-
-		# get pathlib
-		p = pathlib.Path(self.path)
-
-		# init generator of object declaration paths
-		obj_dec_paths = p.glob('**/0=ocfl_object_*')
-
-		# wrap in generator to return parent, obj path
-		return self._obj_dec_paths_generator(obj_dec_paths, as_ocfl_objects=as_ocfl_objects)
-
-
-	def _obj_dec_paths_generator(self, obj_dec_paths, as_ocfl_objects=True):
-
-		'''
-		Wrapper to accept generator of object declaration paths, return object path
-		'''
-
-		for obj_dec_path in obj_dec_paths:
-
-			# yield object path
-			if not as_ocfl_objects:
-				yield str(obj_dec_path.parent)
-
-			# yield object instance
-			elif as_ocfl_objects:
-				yield OCFLObject(str(obj_dec_path.parent))
 
 
 	def count_objects(self):
@@ -459,17 +472,6 @@ class OCFLObject(object):
 
 	'''
 	Class for OCFL Object
-
-	Minmal Example (https://ocfl.io/0.1/spec/#example-minimal-object)
-	[object root]
-	├── 0=ocfl_object_1.0
-	├── inventory.json
-	├── inventory.json.sha512
-	└── v1
-		├── inventory.json
-		├── inventory.json.sha512
-		└── content
-			└── file.txt
 	'''
 
 	def __init__(
@@ -494,11 +496,7 @@ class OCFLObject(object):
 		self.version = version
 
 		# update instance path
-		if path == None:
-			logger.debug('path not provided, creating unique directory')
-			self.path = '%s' % (uuid.uuid4().hex)
-		else:
-			self.path = path
+		self.path = path
 
 		# set algos
 		self.file_digest_algo = file_digest_algo
@@ -535,6 +533,47 @@ class OCFLObject(object):
 			return self.path
 
 
+	@property
+	def exists(self):
+
+		'''
+		Property to return if object exists
+		'''
+
+		# if storage root set, use
+		if self.storage_root != None:
+			return os.path.exists(self.full_path)
+		# else, use path only as it might be full
+		else:
+			return os.path.exists(self.path)
+
+
+	@property
+	def storage_id(self):
+
+		'''
+		Property to return storage id based on storage engine of storage root
+		'''
+
+		if self.storage_root != None:
+			return self.storage_root._calc_storage_id(self.id)
+		else:
+			raise MissingStorageRoot('storage_id cannot be calculated without associated Storage Root')
+
+
+	@property
+	def storage_path(self):
+
+		'''
+		Property to return storage path based on storage engine and storage id property
+		'''
+
+		if self.storage_root != None:
+			return self.storage_root._calc_storage_path(self.storage_id)
+		else:
+			raise MissingStorageRoot('storage_path cannot be calculated without associated Storage Root')
+
+
 	def is_ocfl_object(self):
 
 		'''
@@ -544,24 +583,26 @@ class OCFLObject(object):
 			dict / False: Namaste directory type if single present, else False
 		'''
 
-		# attempt to read and parse namaste tags
-		nam_d = namaste.get_types(self.full_path)
+		if self.exists:
 
-		# single type
-		if len(nam_d) == 1:
-			nam_d_dec = nam_d[list(nam_d.keys())[0]]
-			if nam_d_dec['name'] == 'ocfl_object':
-				return nam_d_dec
-			else:
-				# logger.debug('namaste directory type %s is not ocfl_object' % nam_d_dec)
+			# attempt to read and parse namaste tags
+			nam_d = namaste.get_types(self.full_path)
+
+			# single type
+			if len(nam_d) == 1:
+				nam_d_dec = nam_d[list(nam_d.keys())[0]]
+				if nam_d_dec['name'] == 'ocfl_object':
+					return nam_d_dec
+				else:
+					return False
+
+			elif len(nam_d) > 1:
 				return False
 
-		elif len(nam_d) > 1:
-			# logger.debug('more than one namaste directory type found for %s' % self.path)
-			return False
+			elif len(nam_d) == 0:
+				return False
 
-		elif len(nam_d) == 0:
-			# logger.debug('no namaste directory types found for %s' % self.path)
+		else:
 			return False
 
 
@@ -617,6 +658,11 @@ class OCFLObject(object):
 		# confirm not already an OCFL object
 		if self.is_ocfl_object():
 			raise Exception('%s appears to already be an OCFL object, aborting' % self.path)
+
+		# if path is None, create uuid
+		if self.path == None:
+			logger.debug('path not provided, creating unique directory')
+			self.path = '%s' % (uuid.uuid4().hex)
 
 		# create temporary v1 dir name
 		v1t = uuid.uuid4().hex
@@ -1129,6 +1175,41 @@ class OCFLObject(object):
 
 		# return
 		return fixity_d
+
+
+	def verify_storage(self):
+
+		'''
+		Method to verify correct storage of the object based on id and storage root
+		'''
+
+		if self.storage_root != None:
+			return self.full_path == os.path.join(self.storage_root.path, self.storage_path)
+		else:
+			raise MissingStorageRoot('Storage Root is required to verify correct storage')
+
+
+	def fix_storage(self):
+
+		'''
+		Convenience method to move object to storage location that matches id and storage engine
+		'''
+
+		if self.storage_root != None:
+
+			# check storage
+			if not self.verify_storage():
+
+				# move object
+				self.storage_root.move_object(self, self.id)
+
+			else:
+
+				logger.debug('Object appears to be in correct storage location according to id and engine')
+
+		else:
+			raise MissingStorageRoot('Storage Root is required to verify correct storage')
+
 
 
 

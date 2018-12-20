@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='pyocfl',
-	version='0.1',
+	version='0.1.1',
 	description='Python 3.x client for the Oxford Common Filesystem Layout (OCFL) specification',
 	url='http://github.com/wsulib/pyocfl',
 	author='Graham Hukill',

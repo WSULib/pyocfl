@@ -47,6 +47,9 @@ class InvalidOCFLObject(Exception):
 	pass
 
 
+class MissingStorageRoot(Exception):
+	pass
+
 
 class OCFLStorageRoot(object):
 
@@ -206,8 +209,6 @@ class OCFLStorageRoot(object):
 		Method to add OCFLObject to OCFLStorageRoot
 			- confirms ocfl_obj is valid ocfl_obj
 
-		NOTE: possibility of post_add hook?
-
 		Args:
 			ocfl_obj (pyocfl.OCFLObject): Object instance
 			target_id (str): new target id, overwriting what is found in ocfl_obj.id
@@ -298,13 +299,23 @@ class OCFLStorageRoot(object):
 				yield OCFLObject(str(obj_dec_path.parent).replace(self.path,'').lstrip('/'), storage_root=self)
 
 
-	def move_object(self, ocfl_obj, target_id):
+	@property
+	def objects(self):
+
+		'''
+		Convenience property for objects
+		'''
+
+		return self.get_objects()
+
+
+	def move_object(self, obj, target_id):
 
 		'''
 		Method to move object
 
 		Args:
-			ocfl_obj (pyocfl.OCFLObject): Object instance
+			obj (pyocfl.OCFLObject): Object instance to move
 			target_id (str): new target id
 		'''
 
@@ -319,21 +330,29 @@ class OCFLStorageRoot(object):
 		else:
 
 			# prepare storage id and path
-			storage_id = self._calc_storage_id(target_id)
-			storage_path = self._calc_storage_path(storage_id)
+			target_storage_id = self._calc_storage_id(target_id)
+			target_storage_path = self._calc_storage_path(target_storage_id)
 
-			# move object
-			shutil.move(
-				os.path.join(self.path, self._calc_storage_path(self._calc_storage_id(ocfl_obj.id))),
-				os.path.join(self.path, storage_path)
-			)
+			# if incoming object has storage root, use to determine path
+			if obj.storage_root != None:
+				shutil.move(
+					os.path.join(obj.storage_root.path, obj.path),
+					os.path.join(self.path, target_storage_path)
+				)
+
+			# else, trust obj.path
+			else:
+				shutil.move(
+					os.path.join(obj.path),
+					os.path.join(self.path, target_storage_path)
+				)
 
 			# udpate object
-			ocfl_obj.path = storage_path
-			ocfl_obj.object_inventory.inventory['id'] = target_id
+			obj.path = target_storage_path
+			obj.object_inventory.inventory['id'] = target_id
 
 		# update
-		ocfl_obj.update()
+		obj.update()
 
 
 	def _calc_storage_id(self, obj_id):
@@ -539,7 +558,7 @@ class OCFLObject(object):
 		if self.storage_root != None:
 			return self.storage_root._calc_storage_id(self.id)
 		else:
-			return None
+			raise MissingStorageRoot('storage_id cannot be calculated without associated Storage Root')
 
 
 	@property
@@ -552,7 +571,7 @@ class OCFLObject(object):
 		if self.storage_root != None:
 			return self.storage_root._calc_storage_path(self.storage_id)
 		else:
-			return None
+			raise MissingStorageRoot('storage_path cannot be calculated without associated Storage Root')
 
 
 	def is_ocfl_object(self):
@@ -1156,6 +1175,41 @@ class OCFLObject(object):
 
 		# return
 		return fixity_d
+
+
+	def verify_storage(self):
+
+		'''
+		Method to verify correct storage of the object based on id and storage root
+		'''
+
+		if self.storage_root != None:
+			return self.full_path == os.path.join(self.storage_root.path, self.storage_path)
+		else:
+			raise MissingStorageRoot('Storage Root is required to verify correct storage')
+
+
+	def fix_storage(self):
+
+		'''
+		Convenience method to move object to storage location that matches id and storage engine
+		'''
+
+		if self.storage_root != None:
+
+			# check storage
+			if not self.verify_storage():
+
+				# move object
+				self.storage_root.move_object(self, self.id)
+
+			else:
+
+				logger.debug('Object appears to be in correct storage location according to id and engine')
+
+		else:
+			raise MissingStorageRoot('Storage Root is required to verify correct storage')
+
 
 
 

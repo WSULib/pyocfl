@@ -487,15 +487,100 @@ sr.check_fixity()
 sr.calc_fixity(fixity_algo='sha512')
 ```
 
+### Object Storage Verification
 
+It's conceivable that Objects will exist within the confines of a Storage Root, but at a filesystem location that does not match the storage engine for that Storage Root.  This might happen for a variety of reasons:
 
+  1. created in other storage root, moved without going through pyocfl `OCFLStorageRoot.add_object`
+  2. storage engine of Storage Root changes "underneath" objects
+  3. a "raw" directory is initialized as an Object within a pre-existing Storage Root
 
+Take the following Storage Root, with a single Object with the `id` of `food`:
 
+```
+.
+├── 0=ocfl_1.0
+├── 1=storage_pair_tree
+└── 62506be34d574da4a0d158a67253ea99
+    ├── 0=ocfl_object_1.0
+    ├── inventory.json
+    ├── inventory.json.md5
+    └── v1
+        ├── content
+        │   ├── bread.txt
+        │   ├── meat.txt
+        │   └── water.txt
+        ├── inventory.json
+        └── inventory.json.md5
+```
 
+We can see from the `1=` file that the storage engine for this Storage Root is `storage_pair_tree`.  If we load this Storage Root with pyocfl, we can confirm this:
 
+```
+sr = OCFLStorageRoot('/tmp/baskets/')
+sr.storage                  
+Out[6]: 'storage_pair_tree'
+```
 
+However, Object `food` is a single, "simple" directory at the root of the Storage Root, not down the pair tree it should be.
 
+One way to uncover these kind of mis-stored objects would be to iterate through *all* OCFL Objects found under the Storage Root, regardless of proper storage:
 
+```
+# objects is shorthand for generator returned by sr.get_objects()
+for obj in sr.objects:
+  print (obj.id, obj.path, obj.storage_id, obj.storage_path)
 
+Out: food 62506be34d574da4a0d158a67253ea99 62506be34d574da4a0d158a67253ea99 62/50/6b/e3/4d/57/4d/a4/a0/d1/58/a6/72/53/ea/99/62506be34d574da4a0d158a67253ea99
+```
 
+An Object's `storage_path` attribute is based on the location and storage engine of its associated Storage Root.  As we can see from the print statement above, this Storage Root would expect an Object with `id` == `food` to be at `62/50/6b/e3/4d/57/4d/a4/a0/d1/58/a6/72/53/ea/99/62506be34d574da4a0d158a67253ea99` relative to the Storage Root (and with `md5` set as the storage algorithm set).
+
+We can more quickly determine this with an Object's built-in `verify_storage` method:
+
+```
+obj.verify_storage()
+Out[9]: False
+```
+
+And, we can "fix" the storage location using the complimentary method, `fix_storage`:
+
+```
+obj.fix_storage()
+```
+
+Which results in the following directory structure for this example Storage Root, where all objects are at the expected storage location:
+
+```
+.
+├── 0=ocfl_1.0
+├── 1=storage_pair_tree
+└── 62
+    └── 50
+        └── 6b
+            └── e3
+                └── 4d
+                    └── 57
+                        └── 4d
+                            └── a4
+                                └── a0
+                                    └── d1
+                                        └── 58
+                                            └── a6
+                                                └── 72
+                                                    └── 53
+                                                        └── ea
+                                                            └── 99
+                                                                └── 62506be34d574da4a0d158a67253ea99
+                                                                    ├── 0=ocfl_object_1.0
+                                                                    ├── inventory.json
+                                                                    ├── inventory.json.md5
+                                                                    └── v1
+                                                                        ├── content
+                                                                        │   ├── bread.txt
+                                                                        │   ├── meat.txt
+                                                                        │   └── water.txt
+                                                                        ├── inventory.json
+                                                                        └── inventory.json.md5
+```
 

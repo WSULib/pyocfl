@@ -356,29 +356,29 @@ class TestOCFLObject(object):
 
 		# checkout v1
 		obj.checkout('%s/v1' % (obj_checkouts), version=1)
-		assert glob.glob('%s/v1/**/*' % obj_checkouts, recursive=True) == [
+		assert set(glob.glob('%s/v1/**/*' % obj_checkouts, recursive=True)) == set([
 			'%s/checkouts/%s/v1/to_be_gone.txt' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v1/foo.xml' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v1/level1' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v1/level1/level2' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v1/level1/level2/bar.txt' % (TESTS_DIR, obj.id)
-		]
+		])
 
 		# checkout v2
 		obj.checkout('%s/v2' % (obj_checkouts), version=2)
-		assert glob.glob('%s/v2/**/*' % obj_checkouts, recursive=True) == [
+		assert set(glob.glob('%s/v2/**/*' % obj_checkouts, recursive=True)) == set([
 			'%s/checkouts/%s/v2/level100' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v2/foo.xml' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v2/level100/level200' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v2/level100/level200/bar.txt' % (TESTS_DIR, obj.id)
-		]
+		])
 
 		# checkout v3
 		obj.checkout('%s/v3' % (obj_checkouts), version=3)
-		assert glob.glob('%s/v3/**/*' % obj_checkouts, recursive=True) == [
+		assert set(glob.glob('%s/v3/**/*' % obj_checkouts, recursive=True)) == set([
 			'%s/checkouts/%s/v3/foo.xml' % (TESTS_DIR, obj.id),
 			'%s/checkouts/%s/v3/penny.txt' % (TESTS_DIR, obj.id)
-		]
+		])
 
 
 	def test_fixity_calculate(self):

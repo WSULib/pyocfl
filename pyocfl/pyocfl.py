@@ -820,9 +820,9 @@ class OCFLObject(object):
 		'''
 
 		# get versions from fs
-		fs_versions = self.get_fs_version_numbers()
+		fs_versions = sorted(self.get_fs_version_numbers())
 
-		# calc object manifest
+		# calc object files manifest
 		self.object_inventory.inventory['manifest'] = self.calc_file_digests([ os.path.join(self.full_path,'v%s/content' % v) for v in fs_versions ])
 
 		# set version state
@@ -874,7 +874,6 @@ class OCFLObject(object):
 
 			# pop v1
 			v_nums.remove(1)
-			logger.debug('baseline set at v1')
 
 			# loop through versions
 			for i,v_num in enumerate(v_nums):
@@ -892,8 +891,13 @@ class OCFLObject(object):
 
 					# loop through ancestors
 					ancestor_v_nums = list(range(1,v_num))
+
 					# reverse
-					ancestor_v_nums.reverse()
+					# ancestor_v_nums.reverse()
+
+					# sort
+					ancestor_v_nums = sorted(ancestor_v_nums)
+
 					# loop through
 					for ancestor_v_num in ancestor_v_nums:
 
@@ -902,22 +906,31 @@ class OCFLObject(object):
 
 						# check if digest present
 						if digest in ancestor_v_dict['state']:
+
 							logger.debug('digest found in v%s' % ancestor_v_num)
 
 							# remove file
-							self._remove_files_from_version(v_num, filepath)
+							self._remove_files_from_version(v_num, filepath, digest)
 
 							# break loop
 							break
 
+						else:
+
+							logger.debug('digest not found, unique to v%s against ancestor v%s' % (v_num, ancestor_v_num))
+
 				# remove any empty directories
 				self._remove_empty_directories(v_num)
+
+			# update manifest of physical files
+			logger.debug('updating inventory.json with new physical files manifest')
+			self.object_inventory.save(self.full_path)
 
 		else:
 			logger.debug('object contains only single version, skipping forward delta reconciliation')
 
 
-	def _remove_files_from_version(self, version, filepaths):
+	def _remove_files_from_version(self, version, filepaths, digest):
 
 		'''
 		Method to remove file from version
@@ -929,10 +942,14 @@ class OCFLObject(object):
 
 		for filepath in filepaths:
 
-			# remove file
+			# remove file from disk
 			v_filepath = os.path.join(self.full_path, 'v%d/content' % version, filepath)
 			logger.debug('removing file from v%s: %s' % (version, v_filepath))
 			os.remove(v_filepath)
+
+			# remove file from manifest
+			manifest_filepath = os.path.join('v%d/content' % version, filepath)
+			self.object_inventory.remove_file_from_manifest(digest, manifest_filepath)
 
 
 	def _remove_empty_directories(self, version):
@@ -998,7 +1015,7 @@ class OCFLObject(object):
 		# loop through version state and copy files to output
 		for digest,filepaths in v_dict['state'].items():
 
-			logger.debug('locating writing content for digest: %s' % digest)
+			logger.debug('locating content for digest: %s' % digest)
 
 			# find matching files
 			matching_files = self.object_inventory.manifest[digest]
@@ -1023,7 +1040,7 @@ class OCFLObject(object):
 			target_filepath (str): Filepath, including local directories, destined for output_path
 		'''
 
-		logger.debug('copying content from %s to %s' % (src_filepath, os.path.join(output_path, target_filepath)))
+		logger.debug('copying file: %ss to %s' % (src_filepath, os.path.join(output_path, target_filepath)))
 
 		# determine directory structure "under" file to create in output_path
 		target_filepath_dirs = '/'.join(target_filepath.split('/')[:-1])
@@ -1280,6 +1297,16 @@ class OCFLObjectInventory(object):
 		return self.inventory
 
 
+	def save(self, obj_path):
+
+		'''
+		Method to write inventory to disk
+		'''
+
+		with open(os.path.join(obj_path,'inventory.json'), 'w') as f:
+			f.write(json.dumps(self.inventory, sort_keys=True, indent=4))
+
+
 	def update_version_state(self, version, digest_d):
 
 		'''
@@ -1338,6 +1365,23 @@ class OCFLObjectInventory(object):
 
 		# update
 		self.inventory['fixity'].update(fixity_d)
+
+
+	def remove_file_from_manifest(self, digest, filepath):
+
+		'''
+		Method to remove file from object manifest
+			- most likely done during delta reconciliation
+		'''
+
+		# copy manifest
+		manifest = self.manifest.copy()
+
+		# remove file entry
+		manifest[digest].remove(filepath)
+
+		# update inventory with modified manifest
+		self.inventory.update({'manifest':manifest})
 
 
 

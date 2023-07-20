@@ -8,7 +8,7 @@ setup(name='pyocfl',
 	author_email='ghukill@gmail.com',
 	license='MIT License',
 	install_requires=[
-		'PyInstaller==3.4',
+		'PyInstaller==3.6',
 		'pypairtree==1.1.0',
 		'pytest==4.0.1'
 	],
